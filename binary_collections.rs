@@ -1,7 +1,5 @@
 use std::cmp::Ordering;
 use std::collections::VecDeque;
-use std::ops::Index;
-use std::ops::IndexMut;
 
 pub trait BinaryCollection<Element> where Element: PartialOrd {
 

@@ -1,13 +1,17 @@
 #![feature(test)]
 #![feature(stmt_expr_attributes)]
 #![expect(clippy::manual_is_multiple_of)]
-#![expect(unused_imports)]
+// #![expect(unused_imports)]
+#![feature(iter_map_windows)]
+#![feature(step_trait)]
 // #[allow(internal_features)]
 // #![feature(core_intrinsics)]
 
-
+#[allow(unused_imports)]
 use std::collections::BTreeSet;
+#[allow(unused_imports)]
 use std::collections::VecDeque;
+#[allow(unused_imports)]
 use std::mem;
 
 pub mod batches_generator;
@@ -18,8 +22,11 @@ pub mod batches;
 mod tests;
 
 use crate::statics::*;
+#[allow(unused_imports)]
 use crate::binary_collections::*;
+#[allow(unused_imports)]
 use crate::triples_array::*;
+#[allow(unused_imports)]
 use crate::batches::*;
 
     // #[cfg(not(debug_assertions))]
@@ -28,6 +35,11 @@ use crate::batches::*;
 fn main() {
     println!("\nrunning\n");
     println!("\nA question mark preceding a number means it was unable to be determined if it was in the sequence or not\n");
+
+    // unsafe {
+    //     env::set_var("RUST_BACKTRACE", "1");
+    //     println!("RUST_BACKTRACE")
+    // }
 
     // let batches = Batches::phi_2_n_phi_p_1(2,0).unwrap();
     // println!("\n{}\n", batches.phi_x_omicron());
@@ -41,9 +53,6 @@ fn main() {
     // println!("\n{}\n", batches.phi_x_omicron());
     // let batches = Batches::phi_2(5,0).unwrap();
     // println!("\n{}\n", batches.phi_x_omicron());
-    for omicron in 2..50u32 {
-        println!("{omicron} | {}", omicron.max_phi_weak());
-    }
 }
 
 #[expect(non_snake_case, reason = "OEIS sequence")]

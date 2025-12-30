@@ -1,10 +1,11 @@
 
 
 use std::{collections::BTreeSet, time::Instant};
-
+#[allow(unused_imports)]
 use hashbrown::HashSet;
+// use std:w:collections::HashSet;
 
-use crate::{batches::Batches, binary_collections::BinaryResizableCollection, generator_return, insert_unique, statics::*};
+use crate::{batches::{self, *}, binary_collections::*, generator_return, insert_unique_hash, statics::*};
 
 type Triple = (usize, usize, usize);
 type Pointer = (usize, usize);
@@ -28,6 +29,10 @@ impl TriplesArray {
         self.len()
     }
 
+    pub fn batch_count(&self) -> usize {
+        (self.omicron()*(self.omicron()-1))/6
+    }
+    
     pub fn sort_triple(mut triple: Triple) -> Triple {
         if triple.0 < triple.1 {
             std::mem::swap(&mut triple.0, &mut triple.1);
@@ -358,14 +363,14 @@ impl TriplesArray {
 impl From<TriplesArray> for Batches {
     fn from(value: TriplesArray) -> Self {
         let omicron = value.omicron().try_into().unwrap();
-        let mut sets: BTreeSet<BTreeSet<u32>> = BTreeSet::new();
+        let mut sets = batches::hashset(value.batch_count());
         for i in 1..value.len() {
             for ii in 0..i {
                 if value.get(Some((i,ii))).is_none() {
                     panic!()
                 } else if value.is_first_in_triple(Some((i,ii))) {
                     let triple = value.get_triple(Some((i,ii))).unwrap();
-                    insert_unique!(sets, BTreeSet::from([triple.0 as u32, triple.1 as u32, triple.2 as u32]));
+                    insert_unique_hash!(sets, BTreeSet::from([triple.0 as u32, triple.1 as u32, triple.2 as u32]));
                 }
             }
         }
