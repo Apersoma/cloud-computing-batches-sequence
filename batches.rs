@@ -1,7 +1,8 @@
 use std::{collections::BTreeSet, fmt::Display};
 #[allow(unused_imports)]
 use std::mem;
-use fxhash::FxBuildHasher;
+use rustc_hash::FxBuildHasher;
+pub use rustc_hash::FxBuildHasher as BatchHasher;
 use hashbrown::HashSet;
 use crate::statics::*;
 
@@ -69,11 +70,11 @@ macro_rules! insert_unique_btree {
 
 type Passed = ();
 
-type BatchHasher = FxBuildHasher;
+// type BatchHasher = FxBuildHasher;
 
 #[inline(always)]
 pub fn hashset<T>(capacity: usize) -> HashSet<T, BatchHasher>{
-    HashSet::with_capacity_and_hasher(capacity, BatchHasher::default())
+    HashSet::with_capacity_and_hasher(capacity, BatchHasher)
 }
 
 #[derive(Debug, Clone)]
@@ -246,7 +247,7 @@ impl Batches {
         let pair_count = ((self.omicron as usize -1)*self.omicron as usize)/2;
         // let mut pairs: HashSet<(u32, u32)> = HashSet::with_capacity(pair_count);
         // let mut pairs: StdHashSet<(u32, u32)> = StdHashSet::with_capacity(pair_count);
-        let mut pairs: HashSet<(u32, u32), FxBuildHasher> = HashSet::with_capacity_and_hasher(pair_count, FxBuildHasher::default());
+        let mut pairs: HashSet<(u32, u32), FxBuildHasher> = HashSet::with_capacity_and_hasher(pair_count, FxBuildHasher);
 
         // O(omicron²)
         // O(omicron²/phi)
