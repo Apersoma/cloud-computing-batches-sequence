@@ -12,18 +12,10 @@ use crate::statics::*;
 #[macro_export]
 macro_rules! generator_return {
     ($e:expr) => {
-        #[cfg(all(debug_assertions, not(test)))]
         let batches = $e;
         #[cfg(all(debug_assertions, not(test)))]
         batches.audit().unwrap();
-        // #[cfg(debug_assertions)]
-        // println!("\n\nbatches: {batches}");
-        // #[cfg(debug_assertions)]
-        // batches.audit().unwrap();
-        #[cfg(all(debug_assertions, not(test)))]
         return batches;
-        #[cfg(not(all(debug_assertions, not(test))))]
-        return $e;
     };
 }
 
@@ -400,29 +392,23 @@ impl Batches {
         }
 
         let mut sets = hashset(omicron as usize);
-        let indices_to_base_value = |row: u32, column: u32| offset+row*phi_n1+column;
+        let indices_to_base_value = move |row: u32, column: u32| offset+row*phi_n1+column;
 
         for i in 0..phi {
             let mut set = BTreeSet::new();
             insert_unique_btree!(set, offset);
-            // set.insert(offset);
             for ii in 1..phi {
                 insert_unique_btree!(set, indices_to_base_value(i,ii));
-                // set.insert(indices_to_base_value(i,ii));
             }
             insert_unique_hash!(sets, set);
-            // sets.insert(set);
         }
         for i in 1..phi_n1 {
             for ii in 1..phi {
                 let mut set = BTreeSet::new();
-                // set.insert(offset+i);
                 insert_unique_btree!(set, offset+i);
                 for iii in 1..phi {
-                    // set.insert(indices_to_base_value(((ii+(iii-1)*(i) - 1)%phi_n1)+1,iii));
                     insert_unique_btree!(set, indices_to_base_value(((ii+(iii-1)*(i) - 1)%phi_n1)+1,iii));
                 }
-                // sets.insert_unique_unchecked(value)
                 insert_unique_hash!(sets, set);
             }
         }
@@ -456,16 +442,14 @@ impl Batches {
         
         let phi_n1 = phi-1;
 
-        let indices_to_base_value = |row: u32, column: u32| offset+row*phi_n1+column;
+        let indices_to_base_value = move |row: u32, column: u32| offset+row*phi_n1+column;
 
         for i in 0..=phi {
-            // if i == 1 {println!()};
             let mut set = BTreeSet::new();
             insert_unique_btree!(set, offset);
             for ii in 1..phi {
                 insert_unique_btree!(set, indices_to_base_value(i,ii));
             }
-            // println!("{set:?}");
             insert_unique_hash!(sets, set);
         }
 
@@ -485,7 +469,6 @@ impl Batches {
             for ii in 1..=phi {
                 insert_unique_btree!(set, indices_to_base_value(ii, i));
             }
-            // println!("{set:?}");
             insert_unique_hash!(sets, set);
         }
 

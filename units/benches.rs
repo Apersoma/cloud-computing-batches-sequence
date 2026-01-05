@@ -20,15 +20,23 @@ pub fn log_total_and_mean(duration: Duration, count: f64) {
 }
 
 const SINGLETON_MIN: u32 = 10;
+const INCLUDE_PRE: bool = false;
+const SPLIT: bool = false;
 
 #[test]
 pub fn phi_eq_omicron_singleton() {
     let min = SINGLETON_MIN*SINGLETON_MIN.isqrt();
     let max = 10000;
-    let mid = (max+SINGLETON_MIN)/2;
-    phi_eq_omicron(2, min, true);
-    phi_eq_omicron(min+1, mid, true);
-    phi_eq_omicron(mid+1, max, true);
+    if INCLUDE_PRE {
+        phi_eq_omicron(2, min, true);
+    }
+    if SPLIT {
+        let mid = (max+SINGLETON_MIN)/2;
+        phi_eq_omicron(min+1, mid, true);
+        phi_eq_omicron(mid+1, max, true);
+    } else {
+        phi_eq_omicron(min, max, true);
+    }
 }
 
 fn phi_eq_omicron(min: u32, max: u32, log: bool) -> Duration {
@@ -47,14 +55,23 @@ fn phi_eq_omicron(min: u32, max: u32, log: bool) -> Duration {
 #[test]
 pub fn phi_x_omicron_singleton() {
     let max = 27;
-    let mid = (max+SINGLETON_MIN)/2;
-    // println!("2..{SINGLETON_MIN}");
-    phi_x_omicron(2, SINGLETON_MIN, true);
-    // println!("{}..{mid}",SINGLETON_MIN+1);
-    phi_x_omicron(SINGLETON_MIN+1, mid, true);
-    // println!("{}..{max}", mid+1);
-    phi_x_omicron(mid+1, max, true);
+    if INCLUDE_PRE {
+        phi_x_omicron(2, SINGLETON_MIN, true);
+    }
+    if SPLIT {
+        let mid = (max+SINGLETON_MIN)/2;
+        phi_x_omicron(SINGLETON_MIN+1, mid, true);
+        phi_x_omicron(mid+1, max, true);
+    } else {
+        phi_x_omicron(SINGLETON_MIN, max, true);
+    }
 }
+    // // println!("2..{SINGLETON_MIN}");
+    // phi_x_omicron(2, SINGLETON_MIN, true);
+    // // println!("{}..{mid}",SINGLETON_MIN+1);
+    // phi_x_omicron(SINGLETON_MIN+1, mid, true);
+    // // println!("{}..{max}", mid+1);
+    // phi_x_omicron(mid+1, max, true);
 
 fn phi_x_omicron(min: u32, max: u32, log: bool) -> Duration {
     let start = Instant::now();
@@ -72,10 +89,16 @@ fn phi_x_omicron(min: u32, max: u32, log: bool) -> Duration {
 #[test]
 pub fn phi_2_n_phi_p_1_singleton() {
     let max = 60;
-    let mid = (max+SINGLETON_MIN)/2;
-    phi_2_n_phi_p_1(2, SINGLETON_MIN, true);
-    phi_2_n_phi_p_1(SINGLETON_MIN+1, mid, true);
-    phi_2_n_phi_p_1(mid+1, max, true);
+    if INCLUDE_PRE {
+        phi_2_n_phi_p_1(2, SINGLETON_MIN, true);
+    }
+    if SPLIT {
+        let mid: u32 = (max+SINGLETON_MIN)/2;
+        phi_2_n_phi_p_1(SINGLETON_MIN+1, mid, true);
+        phi_2_n_phi_p_1(mid+1, max, true);
+    } else {
+        phi_2_n_phi_p_1(SINGLETON_MIN, max, true);
+    }
 }
 
 fn phi_2_n_phi_p_1(min: u32, max: u32, log: bool) -> Duration {
@@ -94,10 +117,16 @@ fn phi_2_n_phi_p_1(min: u32, max: u32, log: bool) -> Duration {
 #[test]
 pub fn phi_2_singleton() {
     let max = 60;
-    let mid = (max+SINGLETON_MIN)/2;
-    phi_2(2, SINGLETON_MIN, true);
-    phi_2(SINGLETON_MIN+1, mid, true);
-    phi_2(mid+1, max, true);
+    if INCLUDE_PRE {
+        phi_2(2, SINGLETON_MIN, true);
+    }
+    if SPLIT {
+        let mid = (max+SINGLETON_MIN)/2;
+        phi_2(SINGLETON_MIN+1, mid, true);
+        phi_2(mid+1, max, true);
+    } else {
+        phi_2(SINGLETON_MIN, max, true);
+    }
 }
 
 fn phi_2(min: u32, max: u32, log: bool) -> Duration {
