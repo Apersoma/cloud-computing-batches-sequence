@@ -165,7 +165,7 @@ pub fn par_phi_2_comp_singleton() {
 fn par_phi_2_comp(min: Int, max: Int, log: bool) -> (Duration, Duration) {
     let start = Instant::now();
     for phi in min..=max {
-        black_box(Batches::sequential_phi_2(phi, 0));
+        black_box(Batches::sequential_phi_2_unchecked(phi, 0));
     }
     let seq_elapsed = start.elapsed();
     println!("seq");
@@ -175,7 +175,7 @@ fn par_phi_2_comp(min: Int, max: Int, log: bool) -> (Duration, Duration) {
     
     let start = Instant::now();
     for phi in min..=max {
-        black_box(Batches::parallel_phi_2(phi, 0));
+        black_box(Batches::parallel_phi_2_unchecked(phi, 0));
     }
     let par_elapsed = start.elapsed();
     println!("par");
@@ -203,12 +203,12 @@ pub fn par_phi_2_alternate() {
         };
         let start = Instant::now();
         for offset in 0..iterations {
-            black_box(Batches::sequential_phi_2(phi, offset));
+            black_box(Batches::sequential_phi_2_unchecked(phi, offset));
         }
         let seq_time = start.elapsed();
         let start = Instant::now();
         for offset in 0..iterations {
-            black_box(Batches::parallel_phi_2(phi, offset));
+            black_box(Batches::parallel_phi_2_unchecked(phi, offset));
         }
         let par_time = start.elapsed();
         // if phi < 100 {
@@ -258,12 +258,12 @@ pub fn par_phi_2_n_phi_p_1_alternate() {
         };
         let start = Instant::now();
         for offset in 0..iterations {
-            black_box(Batches::sequential_phi_2_n_phi_p_1(phi, offset));
+            black_box(Batches::sequential_phi_2_n_phi_p_1_unchecked(phi, offset));
         }
         let seq_time = start.elapsed();
         let start = Instant::now();
         for offset in 0..iterations {
-            black_box(Batches::parallel_phi_2_n_phi_p_1(phi, offset));
+            black_box(Batches::parallel_phi_2_n_phi_p_1_unchecked(phi, offset));
         }
         let par_time = start.elapsed();
         // if phi < 100 {

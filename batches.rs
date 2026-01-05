@@ -4,9 +4,11 @@ use std::fmt::{Debug, Display};
 use std::collections::BTreeSet;
 #[allow(unused_imports)]
 use std::mem;
+use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use rustc_hash::FxBuildHasher;
 pub use rustc_hash::FxBuildHasher as BatchHasher;
 use hashbrown::HashSet;
+use rayon::iter::ParallelExtend;
 use crate::{Int, signed, signed_unsigned::*, statics::*};
 
 // #[allow(unused)]
@@ -404,16 +406,59 @@ impl Batches {
             return None;
         }
         if phi < 50 {
-            opt_generator_return!(Self::sequential_phi_2_n_phi_p_1(phi, offset));
+            opt_generator_return!(Self::sequential_phi_2_n_phi_p_1_unchecked(phi, offset));
         } else {
-            opt_generator_return!(Self::parallel_phi_2_n_phi_p_1(phi, offset));
+            opt_generator_return!(Self::parallel_phi_2_n_phi_p_1_unchecked(phi, offset));
         }
+    }
+    /// omicron = phi^2 - phi + 1
+    #[must_use]
+    pub fn sequential_phi_2_n_phi_p_1(phi: Int, offset: Int) -> Option<Batches> {
+        if !(phi-1).is_prime() {
+            if phi == 2 {
+                opt_generator_return!(Batches { 
+                    omicron: 3,
+                    phi, 
+                    min: offset, 
+                    max: 2+offset,
+                    sets: [
+                        BTreeSet::from([offset, 1+offset]), 
+                        BTreeSet::from([offset, 2+offset]),
+                        BTreeSet::from([1+offset, 2+offset])
+                    ].into_iter().collect()
+                });
+            }
+            return None;
+        }
+        opt_generator_return!(Self::sequential_phi_2_n_phi_p_1_unchecked(phi, offset));
+    }
+
+    /// omicron = phi^2 - phi + 1
+    #[must_use]
+    pub fn parallel_phi_2_n_phi_p_1(phi: Int, offset: Int) -> Option<Batches> {
+        if !(phi-1).is_prime() {
+            if phi == 2 {
+                opt_generator_return!(Batches { 
+                    omicron: 3,
+                    phi, 
+                    min: offset, 
+                    max: 2+offset,
+                    sets: [
+                        BTreeSet::from([offset, 1+offset]), 
+                        BTreeSet::from([offset, 2+offset]),
+                        BTreeSet::from([1+offset, 2+offset])
+                    ].into_iter().collect()
+                });
+            }
+            return None;
+        }
+        opt_generator_return!(Self::parallel_phi_2_n_phi_p_1_unchecked(phi, offset));
     }
 
 
     /// omicron = phi^2 - phi + 1
     #[must_use]
-    pub fn parallel_phi_2_n_phi_p_1(phi: Int, offset: Int) -> Batches {
+    pub(crate) fn parallel_phi_2_n_phi_p_1_unchecked(phi: Int, offset: Int) -> Batches {
         let phi_n1 = phi-1;
         let omicron = phi*(phi_n1)+1;
 
@@ -477,7 +522,7 @@ impl Batches {
 
     /// omicron = phi^2 - phi + 1
     #[must_use]
-    pub(crate) fn sequential_phi_2_n_phi_p_1(phi: Int, offset: Int) -> Batches {
+    pub(crate) fn sequential_phi_2_n_phi_p_1_unchecked(phi: Int, offset: Int) -> Batches {
         let phi_n1 = phi-1;
         let omicron = phi*(phi_n1)+1;
         
@@ -529,15 +574,22 @@ impl Batches {
         }
 
         if phi < 50 {
-            opt_generator_return!(Self::sequential_phi_2(phi, offset));
+            opt_generator_return!(Self::sequential_phi_2_unchecked(phi, offset));
         } else {
-            opt_generator_return!(Self::parallel_phi_2(phi, offset));
+            opt_generator_return!(Self::parallel_phi_2_unchecked(phi, offset));
         }
     }
     
+    pub fn parallel_phi_2(phi: Int, offset: Int) -> Option<Batches> {
+        if !phi.is_prime() {
+            return None;
+        }
+        opt_generator_return!(Self::parallel_phi_2_unchecked(phi, offset));
+    }
+
     /// omicron = phi^2
     #[must_use]
-    pub(crate) fn parallel_phi_2(phi: Int, offset: Int) -> Batches {
+    pub(crate) fn parallel_phi_2_unchecked(phi: Int, offset: Int) -> Batches {
         let phi_n1 = phi-1;
         let omicron = phi*phi;
 
@@ -587,7 +639,7 @@ impl Batches {
             send!(sender, set);
         }
         drop(sender);
-        
+
         Batches {
             omicron,
             phi,
@@ -597,9 +649,16 @@ impl Batches {
         }
     }
 
+    pub fn sequential_phi_2(phi: Int, offset: Int) -> Option<Batches> {
+        if !phi.is_prime() {
+            return None;
+        }
+        opt_generator_return!(Self::sequential_phi_2_unchecked(phi, offset));
+    }
+
     /// omicron = phi^2
     #[must_use]
-    pub(crate) fn sequential_phi_2(phi: Int, offset: Int) -> Batches {
+    pub(crate) fn sequential_phi_2_unchecked(phi: Int, offset: Int) -> Batches {
         let omicron = phi*phi;
 
         let mut sets = hashset(omicron as usize + phi as usize);
@@ -648,6 +707,9 @@ impl Batches {
     /// Creates a net set with the same phi and an omicron that is this omicron times phi
     #[must_use]
     pub fn phi_x_omicron(&self) -> Batches {
+        if self.phi == 2 {
+            return Self::batches_of_pairs(self.omicron*2, self.min)
+        }
         // if self.phi == 2 {return Batches::phi_is_2(self.omicron*2, self.min)}
         let mut sets = self.sets.clone();
         sets.reserve((self.phi as usize - 1 + self.omicron as usize)*self.omicron as usize);
@@ -681,21 +743,22 @@ impl Batches {
         });
     }
 
-    // pub fn phi_is_2(omicron: Int, offset: Int) -> Batches {
-    //     assert_ne!(omicron, 1);
-    //     let mut sets = hashset(omicron as usize * (omicron as usize - 1) / 2);
-    //     let max = offset+omicron;
-    //     for a in offset..max {
-    //         sets.extend((a+1..max).map(|b|[a,b].into()));
-    //     }
-    //     Batches { 
-    //         omicron,
-    //         phi: 2, 
-    //         min: offset, 
-    //         max, 
-    //         sets
-    //     }   
-    // }
+    /// is parallel but via rayon
+    pub fn batches_of_pairs(omicron: Int, offset: Int) -> Batches {
+        let mut sets = hashset(omicron as usize *(omicron as usize - 1) / 2);
+        sets.par_extend(
+            (offset..omicron+offset)
+            .into_par_iter()
+            .flat_map(|x|(offset..x).into_par_iter().map(move |y|BTreeSet::from([x,y])))
+        );
+        generator_return!(Batches {
+            omicron,
+            phi: 2,
+            min: offset,
+            max: offset+omicron-1,
+            sets,
+        });
+    }
 }
 
 impl Display for Batches {
