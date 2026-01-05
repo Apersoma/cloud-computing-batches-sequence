@@ -1,6 +1,5 @@
 #![cfg(test)]
 use std::hint::black_box;
-use std::io::{Write, stdout};
 use std::time::{Duration, Instant};
 
 use crate::{Int, tests};
@@ -25,7 +24,7 @@ pub fn log_total_and_mean(duration: Duration, count: f64) {
 
 const SINGLETON_MIN: Int = 10;
 const INCLUDE_PRE: bool = false;
-const SPLIT: bool = true;
+const SPLIT: bool = false;
 
 #[test]
 pub fn phi_eq_omicron_singleton() {
@@ -57,7 +56,7 @@ fn phi_eq_omicron(min: Int, max: Int, log: bool) -> Duration {
 
 #[test]
 pub fn phi_x_omicron_singleton() {
-    let max = 27;
+    let max = SINGLETON_MIN;
     if INCLUDE_PRE {
         phi_x_omicron(2, SINGLETON_MIN, true);
     }
@@ -90,7 +89,7 @@ fn phi_x_omicron(min: Int, max: Int, log: bool) -> Duration {
 
 #[test]
 pub fn phi_2_n_phi_p_1_singleton() {
-    let max = 60;
+    let max = 100;
     if INCLUDE_PRE {
         phi_2_n_phi_p_1(2, SINGLETON_MIN, true);
     }
@@ -117,7 +116,7 @@ fn phi_2_n_phi_p_1(min: Int, max: Int, log: bool) -> Duration {
 
 #[test]
 pub fn phi_2_singleton() {
-    let max = 60;
+    let max = 100;
     if INCLUDE_PRE {
         phi_2(2, SINGLETON_MIN, true);
     }
@@ -162,7 +161,7 @@ pub fn par_phi_2_comp_singleton() {
 fn par_phi_2_comp(min: Int, max: Int, log: bool) -> (Duration, Duration) {
     let start = Instant::now();
     for phi in min..=max {
-        black_box(Batches::phi_2(phi, 0));
+        black_box(Batches::sequential_phi_2(phi, 0));
     }
     let seq_elapsed = start.elapsed();
     println!("seq");
@@ -172,7 +171,7 @@ fn par_phi_2_comp(min: Int, max: Int, log: bool) -> (Duration, Duration) {
     
     let start = Instant::now();
     for phi in min..=max {
-        black_box(Batches::par_phi_2(phi, 0));
+        black_box(Batches::parallel_phi_2(phi, 0));
     }
     let par_elapsed = start.elapsed();
     println!("par");
@@ -184,12 +183,12 @@ fn par_phi_2_comp(min: Int, max: Int, log: bool) -> (Duration, Duration) {
 }
 
 #[test]
-pub fn par_phi_2_swap() {
-    let min = 40;
-    let max = 400;
-    let iterations = 1;
+pub fn par_phi_2_alternate() {
+    let min = 2;
+    let max = 100;
+    let iterations = 5;
     println!("\n");
-    println!("{:?}", tests::PRIMES.iter().filter(move|&&p|p>=min as u8).collect::<Vec<_>>());
+    println!("{:?}", tests::PRIMES.iter().filter(move|&&p|p>=min as u8 && p<max as u8).collect::<Vec<_>>());
     print!(  "par is faster: ");
     let mut a = 0.;
     for phi in min..max {
@@ -201,27 +200,34 @@ pub fn par_phi_2_swap() {
         };
         let start = Instant::now();
         for offset in 0..iterations {
-            black_box(Batches::phi_2(phi, offset));
+            black_box(Batches::sequential_phi_2(phi, offset));
         }
         let seq_time = start.elapsed();
         let start = Instant::now();
         for offset in 0..iterations {
-            black_box(Batches::par_phi_2(phi, offset));
+            black_box(Batches::parallel_phi_2(phi, offset));
         }
         let par_time = start.elapsed();
-        if phi < 100 {
-            if par_time < seq_time {
-                print!("{phi}, ");
-                stdout().flush().ok();
-            }
-        } else {
-            let par = par_time.as_secs_f64();
-            let seq = seq_time.as_secs_f64();
-            let p = (seq - par) / seq;
-            a += p;
-            println!("{phi}: (seq - par)/seq = {:.3}", p);
-            println!("{a}");
-        }
+        // if phi < 100 {
+        //     if par_time < seq_time {
+        //         print!("{phi}, ");
+        //         stdout().flush().ok();
+        //     }
+        // } else {
+        //     let par = par_time.as_secs_f64();
+        //     let seq = seq_time.as_secs_f64();
+        //     let p = (seq - par) / seq;
+        //     a += p;
+        //     println!("{phi}: (seq - par)/seq = {:.3}", p);
+        //     println!("{a}");
+        // }
+
+        let par = par_time.as_secs_f64();
+        let seq = seq_time.as_secs_f64();
+        let p = (seq - par) / seq;
+        a += p;
+        println!("{phi}: (seq - par)/seq = {:.3}", p);
+        println!("{a}");
 
         // if par_time < seq_time {
         //     print!("{phi}, ");

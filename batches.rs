@@ -445,12 +445,23 @@ impl Batches {
         });
     }
 
+    /// omicron = phi^2
     #[must_use]
-    pub fn par_phi_2(phi: Int, offset: Int) -> Option<Batches> {
+    pub fn phi_2(phi: Int, offset: Int) -> Option<Batches> {
         if !phi.is_prime() {
             return None;
         }
 
+        if phi < 50 {
+            opt_generator_return!(Self::sequential_phi_2(phi, offset));
+        } else {
+            opt_generator_return!(Self::parallel_phi_2(phi, offset));
+        }
+    }
+    
+    /// omicron = phi^2
+    #[must_use]
+    pub(crate) fn parallel_phi_2(phi: Int, offset: Int) -> Batches {
         let phi_n1 = phi-1;
         let omicron = phi*phi;
 
@@ -467,9 +478,9 @@ impl Batches {
             sets
         });
         
-        let sender_0 = sender.clone();
-        thread::spawn(move ||
-            for i in 1..phi_n1 {
+        for i in 1..phi_n1 {
+            let sender_0 = sender.clone();
+            thread::spawn(move ||
                 for ii in 1..phi {
                     let mut set = BTreeSet::new();
                     insert_unique_btree!(set, offset+i);
@@ -478,8 +489,9 @@ impl Batches {
                     }
                     send!(sender_0, set);
                 }
-            }
-        );
+            );
+        }
+        
         let sender_0 = sender.clone();
         thread::spawn(move ||
             for i in 0..=phi {
@@ -501,22 +513,18 @@ impl Batches {
             }
         );
 
-        opt_generator_return!(Batches {
+        Batches {
             omicron,
             phi,
             min: offset,
             max: omicron - 1 + offset,
             sets: collector.join().unwrap(),
-        });
+        }
     }
 
     /// omicron = phi^2
     #[must_use]
-    pub fn phi_2(phi: Int, offset: Int) -> Option<Batches> {
-        if !phi.is_prime() {
-            return None;
-        }
-
+    pub(crate) fn sequential_phi_2(phi: Int, offset: Int) -> Batches {
         let omicron = phi*phi;
 
         let mut sets = hashset(omicron as usize + phi as usize);
@@ -553,13 +561,13 @@ impl Batches {
             insert_unique_hash!(sets, set);
         }
 
-        opt_generator_return!(Batches {
+        Batches {
             omicron,
             phi,
             min: offset,
             max: omicron - 1 + offset,
             sets,
-        });
+        }
     }
 
     /// Creates a net set with the same phi and an omicron that is this omicron times phi
