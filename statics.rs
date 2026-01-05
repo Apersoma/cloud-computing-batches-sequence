@@ -9,6 +9,7 @@ pub struct TestError;
 
 
 ///min and max will default to 2 and the max value that could work
+#[cfg_attr(feature = "inline-more", inline)]
 pub fn test_omicron_quick(omicron: usize, min: Option<usize>, max: Option<usize>) -> Vec<(usize, Result<bool, TestError>)> {
     let min: usize = min.unwrap_or_default();
     let defaulted  = max.is_none();
@@ -24,6 +25,7 @@ pub fn test_omicron_quick(omicron: usize, min: Option<usize>, max: Option<usize>
 }
 
 ///min and max will default to 2 and the max value that could work
+#[cfg_attr(feature = "inline-more", inline)]
 pub fn test_omicron_slow(omicron: usize, min: Option<usize>, max: Option<usize>, status_updates: bool) -> Vec<(usize, Result<bool, TestError>)> {
     let min = min.unwrap_or_default();
     let max: usize = max.unwrap_or_else(||omicron.max_phi_weak());
@@ -172,12 +174,14 @@ pub fn clear_terminal() {
 
 pub trait Composition {
     #[expect(clippy::wrong_self_convention)]
+    #[cfg_attr(feature = "inline-more", inline)]
     fn is_prime(self) -> bool;
 }
 
 macro_rules! prime {
     ($t:ty) => {
         impl Composition for $t {
+            #[cfg_attr(feature = "inline-more", inline)]
             fn is_prime(self) -> bool {
                 if self <= 1 as $t {return false};
                 if self & 1 as $t == 0 as $t {return self == 2 as $t};
@@ -234,6 +238,7 @@ pub trait UnwrapEither<T> {
 }
 
 impl<T> UnwrapEither<T> for Result<T,T> {
+    #[cfg_attr(feature = "inline-more", inline)]
     fn unwrap_either(self) -> T {
         match self {
             Ok(o) => o,

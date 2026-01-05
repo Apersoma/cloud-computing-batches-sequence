@@ -104,6 +104,7 @@ pub struct ValidationError {
 impl Batches {
     #[expect(clippy::len_without_is_empty)]
     #[must_use]
+    #[inline(always)]
     pub fn len(&self) -> usize {
         self.sets.len()
     }
@@ -145,6 +146,7 @@ impl Batches {
     }
 
     #[must_use]
+    #[inline(always)]
     pub fn lambda(&self) -> Int {
         (self.omicron - 1)/(self.phi - 1)
     }
@@ -157,6 +159,7 @@ impl Batches {
     ///
     /// time complexity of `O(omicron²)`, and takes the longest when this is valid
     /// 
+    #[inline(always)]
     pub fn audit(&self) -> Result<Passed, ValidationError> {
         if self.omicron - 1 + self.min != self.max {
             return Err(ValidationError {
@@ -375,6 +378,7 @@ impl Batches {
     // pub fn generate()
 
     #[must_use]
+    #[cfg_attr(feature = "inline-more", inline)]
     pub fn phi_equals_omicron(phi: Int, offset: Int) -> Batches {
         assert!(phi > 1);
         generator_return!(Batches { 
@@ -388,6 +392,7 @@ impl Batches {
 
     /// omicron = phi^2 - phi + 1
     #[must_use]
+    #[cfg_attr(feature = "inline-more", inline)]
     pub fn phi_2_n_phi_p_1(phi: Int, offset: Int) -> Option<Batches> {
         if !(phi-1).is_prime() {
             if phi == 2 {
@@ -411,8 +416,10 @@ impl Batches {
             opt_generator_return!(Self::parallel_phi_2_n_phi_p_1_unchecked(phi, offset));
         }
     }
+    
     /// omicron = phi^2 - phi + 1
     #[must_use]
+    #[cfg_attr(feature = "inline-more", inline)]
     pub fn sequential_phi_2_n_phi_p_1(phi: Int, offset: Int) -> Option<Batches> {
         if !(phi-1).is_prime() {
             if phi == 2 {
@@ -435,6 +442,7 @@ impl Batches {
 
     /// omicron = phi^2 - phi + 1
     #[must_use]
+    #[cfg_attr(feature = "inline-more", inline)]
     pub fn parallel_phi_2_n_phi_p_1(phi: Int, offset: Int) -> Option<Batches> {
         if !(phi-1).is_prime() {
             if phi == 2 {
@@ -458,6 +466,7 @@ impl Batches {
 
     /// omicron = phi^2 - phi + 1
     #[must_use]
+    #[cfg_attr(feature = "inline-more", inline)]
     pub(crate) fn parallel_phi_2_n_phi_p_1_unchecked(phi: Int, offset: Int) -> Batches {
         let phi_n1 = phi-1;
         let omicron = phi*(phi_n1)+1;
@@ -522,6 +531,7 @@ impl Batches {
 
     /// omicron = phi^2 - phi + 1
     #[must_use]
+    #[cfg_attr(feature = "inline-more", inline)]
     pub(crate) fn sequential_phi_2_n_phi_p_1_unchecked(phi: Int, offset: Int) -> Batches {
         let phi_n1 = phi-1;
         let omicron = phi*(phi_n1)+1;
@@ -568,6 +578,7 @@ impl Batches {
 
     /// omicron = phi^2
     #[must_use]
+    #[cfg_attr(feature = "inline-more", inline)]
     pub fn phi_2(phi: Int, offset: Int) -> Option<Batches> {
         if !phi.is_prime() {
             return None;
@@ -580,6 +591,8 @@ impl Batches {
         }
     }
     
+    #[must_use]
+    #[cfg_attr(feature = "inline-more", inline)]
     pub fn parallel_phi_2(phi: Int, offset: Int) -> Option<Batches> {
         if !phi.is_prime() {
             return None;
@@ -589,6 +602,7 @@ impl Batches {
 
     /// omicron = phi^2
     #[must_use]
+    #[cfg_attr(feature = "inline-more", inline)]
     pub(crate) fn parallel_phi_2_unchecked(phi: Int, offset: Int) -> Batches {
         let phi_n1 = phi-1;
         let omicron = phi*phi;
@@ -649,6 +663,8 @@ impl Batches {
         }
     }
 
+    #[must_use]
+    #[cfg_attr(feature = "inline-more", inline)]
     pub fn sequential_phi_2(phi: Int, offset: Int) -> Option<Batches> {
         if !phi.is_prime() {
             return None;
@@ -658,6 +674,7 @@ impl Batches {
 
     /// omicron = phi^2
     #[must_use]
+    #[cfg_attr(feature = "inline-more", inline)]
     pub(crate) fn sequential_phi_2_unchecked(phi: Int, offset: Int) -> Batches {
         let omicron = phi*phi;
 
@@ -706,6 +723,7 @@ impl Batches {
 
     /// Creates a net set with the same phi and an omicron that is this omicron times phi
     #[must_use]
+    #[cfg_attr(feature = "inline-more", inline)]
     pub fn phi_x_omicron(&self) -> Batches {
         if self.phi == 2 {
             return Self::batches_of_pairs(self.omicron*2, self.min)
@@ -744,6 +762,8 @@ impl Batches {
     }
 
     /// is parallel but via rayon
+    #[must_use]
+    #[cfg_attr(feature = "inline-more", inline)]
     pub fn batches_of_pairs(omicron: Int, offset: Int) -> Batches {
         let mut sets = hashset(omicron as usize *(omicron as usize - 1) / 2);
         sets.par_extend(
