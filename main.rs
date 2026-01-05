@@ -19,11 +19,11 @@ pub mod statics;
 pub mod binary_collections;
 pub mod triples_array;
 pub mod batches;
+pub mod signed_unsigned;
+pub mod grown_shrunk;
 mod tests;
 mod units;
 
-// use rayon::iter::ext
-use rayon::iter::*;
 
 use crate::statics::*;
 #[allow(unused_imports)]
@@ -36,7 +36,7 @@ use crate::batches::*;
     // #[cfg(not(debug_assertions))]
     // tests::isqrt_or_f_x_f();
     
-pub type Int = u16;
+pub type Int = u32;
 
 fn main() {
     println!("\nrunning\n");
@@ -45,50 +45,9 @@ fn main() {
     //     println!("RUST_BACKTRACE")
     // }
     println!("\nA question mark preceding a number means it was unable to be determined if it was in the sequence or not\n");
+
+        
     
-    
-
-    let phi= 11;
-    let offset = 0;
-    let omicron = phi*phi;
-
-    let mut sets: hashbrown::HashSet<BTreeSet<Int>, BatchHasher> = hashset(omicron as usize + phi as usize);
-
-    let phi_n1 = phi-1;
-
-    let indices_to_base_value = move |row: Int, column: Int| offset+row*phi_n1+column;
-    
-    // let mut iter0 = (0..phi+1)
-    // #[cfg(target_pointer_width = "64")]
-    let mut iter0 = (1..=phi)
-        .map(|i|{
-            let mut mini_set = BTreeSet::new();
-            insert_unique_btree!(mini_set, offset);
-            for ii in 1..phi {
-                insert_unique_btree!(mini_set, indices_to_base_value(i,ii));
-            }
-            mini_set
-        });
-    let mut iter1 = (1..phi)
-        .flat_map(|i|(1..phi+1)
-        // .flat_map(|i|(1..=phi)
-            .map(move |ii| {
-                let mut mini_set = BTreeSet::new();
-                insert_unique_btree!(mini_set, offset+i);
-                for iii in 1..phi {
-                    insert_unique_btree!(mini_set, indices_to_base_value(((ii+(iii-1)*(i) - 1)%phi)+1,iii));
-                }
-                mini_set
-            })
-        );
-    let mut iter2 = (1..phi)
-        .map(|i|{
-            let mut mini_set = BTreeSet::new();
-            for ii in 1..=phi {
-                insert_unique_btree!(mini_set, indices_to_base_value(ii, i));
-            }
-            mini_set
-        });
     
     
     // let iters: VecDeque<&mut dyn ExactSizeIterator<Item = _>> = iters.into_iter().collect::<VecDeque<_>>();

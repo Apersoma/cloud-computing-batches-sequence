@@ -1,10 +1,13 @@
-use std::{collections::BTreeSet, fmt::{Debug, Display}};
+use std::thread;
+use std::sync::mpsc::channel;
+use std::fmt::{Debug, Display};
+use std::collections::BTreeSet;
 #[allow(unused_imports)]
 use std::mem;
 use rustc_hash::FxBuildHasher;
 pub use rustc_hash::FxBuildHasher as BatchHasher;
 use hashbrown::HashSet;
-use crate::statics::*;
+use crate::{Int, signed, signed_unsigned::*, statics::*};
 
 // #[allow(unused)]
 // type StdHashSet<T> = std::collections::HashSet<T>;
@@ -46,7 +49,9 @@ macro_rules! insert_unique_hash {
         #[cfg(all(debug_assertions, not(feature = "fast-insertions")))]
         assert!($set.insert($e));
         #[cfg(not(all(debug_assertions, not(feature = "fast-insertions"))))]
-        unsafe {$set.insert_unique_unchecked($e)}
+        unsafe {$set.insert_unique_unchecked($e)};
+        // #[cfg(not(all(debug_assertions, not(feature = "fast-insertions"))))]
+        // panic!()
     };
 }
 
@@ -57,6 +62,16 @@ macro_rules! insert_unique_btree {
         assert!($set.insert($e));
         #[cfg(not(all(debug_assertions, not(feature = "fast-insertions"))))]
         $set.insert($e)
+    };
+}
+
+macro_rules! send {
+    ($s:expr, $v:expr) => {
+        #[cfg(debug_assertions)]
+        $s.send($v).unwrap();
+        #[cfg(not(debug_assertions))]
+        #[expect(unused_must_use)]
+        $s.send($v);
     };
 }
 
@@ -71,12 +86,12 @@ pub fn hashset<T>(capacity: usize) -> HashSet<T, BatchHasher>{
 
 #[derive(Debug, Clone)]
 pub struct Batches {
-    pub omicron: u32,
-    pub phi: u32,
-    pub min: u32,
-    pub max: u32,
-    pub sets: HashSet<BTreeSet<u32>, BatchHasher>,
-    // pub sets: StdHashSet<BTreeSet<u32>>,
+    pub omicron: Int,
+    pub phi: Int,
+    pub min: Int,
+    pub max: Int,
+    pub sets: HashSet<BTreeSet<Int>, BatchHasher>,
+    // pub sets: StdHashSet<BTreeSet<Int>>,
 }
 
 pub struct ValidationError {
@@ -92,7 +107,7 @@ impl Batches {
     }
 
     #[must_use]
-    pub fn shift(&self, shift: i32) -> Batches {
+    pub fn shift(&self, shift: signed!(Int)) -> Batches {
         if shift == 0 {return self.clone()}
         let max = self.max.strict_add_signed(shift);
         let min = self.min.strict_add_signed(shift);
@@ -128,7 +143,7 @@ impl Batches {
     }
 
     #[must_use]
-    pub fn lambda(&self) -> u32 {
+    pub fn lambda(&self) -> Int {
         (self.omicron - 1)/(self.phi - 1)
     }
 
@@ -195,7 +210,7 @@ impl Batches {
         //     panic!();
         // }
 
-
+        
         let p = self.phi*(self.phi - 1);
         let o = self.omicron*(self.omicron-1);
         if o % p != 0 {
@@ -289,9 +304,9 @@ impl Batches {
             }
         }
         let pair_count = ((self.omicron as usize -1)*self.omicron as usize)/2;
-        // let mut pairs: HashSet<(u32, u32)> = HashSet::with_capacity(pair_count);
-        // let mut pairs: StdHashSet<(u32, u32)> = StdHashSet::with_capacity(pair_count);
-        let mut pairs: HashSet<(u32, u32), FxBuildHasher> = HashSet::with_capacity_and_hasher(pair_count, FxBuildHasher);
+        // let mut pairs: HashSet<(Int, Int)> = HashSet::with_capacity(pair_count);
+        // let mut pairs: StdHashSet<(Int, Int)> = StdHashSet::with_capacity(pair_count);
+        let mut pairs: HashSet<(Int, Int), FxBuildHasher> = HashSet::with_capacity_and_hasher(pair_count, FxBuildHasher);
 
         // O(omicron²)
         // O(omicron²/phi)
@@ -358,7 +373,7 @@ impl Batches {
     // pub fn generate()
 
     #[must_use]
-    pub fn phi_equals_omicron(phi: u32, offset: u32) -> Batches {
+    pub fn phi_equals_omicron(phi: Int, offset: Int) -> Batches {
         assert!(phi > 1);
         generator_return!(Batches { 
             omicron: phi,
@@ -371,7 +386,7 @@ impl Batches {
 
     /// omicron = phi^2 - phi + 1
     #[must_use]
-    pub fn phi_2_n_phi_p_1(phi: u32, offset: u32) -> Option<Batches> {
+    pub fn phi_2_n_phi_p_1(phi: Int, offset: Int) -> Option<Batches> {
         let phi_n1 = phi-1;
         let omicron = phi*(phi_n1)+1;
         if !phi_n1.is_prime() {
@@ -392,7 +407,7 @@ impl Batches {
         }
 
         let mut sets = hashset(omicron as usize);
-        let indices_to_base_value = move |row: u32, column: u32| offset+row*phi_n1+column;
+        let indices_to_base_value = move |row: Int, column: Int| offset+row*phi_n1+column;
 
         for i in 0..phi {
             let mut set = BTreeSet::new();
@@ -431,47 +446,58 @@ impl Batches {
     }
 
     #[must_use]
-    pub fn par_phi_2(phi: u32, offset: u32) -> Option<Batches> {
-        let omicron = phi*phi;
+    pub fn par_phi_2(phi: Int, offset: Int) -> Option<Batches> {
         if !phi.is_prime() {
             return None;
         }
 
+        let phi_n1 = phi-1;
+        let omicron = phi*phi;
+
         let mut sets = hashset(omicron as usize + phi as usize);
         
+        let indices_to_base_value = move |row: Int, column: Int| offset+row*phi_n1+column;
+
+        let (sender, receiver) = channel();
+
         
-
-        let phi_n1 = phi-1;
-
-        let indices_to_base_value = move |row: u32, column: u32| offset+row*phi_n1+column;
-
-        for i in 0..=phi {
-            let mut set = BTreeSet::new();
-            insert_unique_btree!(set, offset);
-            for ii in 1..phi {
-                insert_unique_btree!(set, indices_to_base_value(i,ii));
-            }
-            insert_unique_hash!(sets, set);
-        }
-
-        for i in 1..phi {
-            for ii in 1..=phi {
-                let mut set = BTreeSet::new();
-                insert_unique_btree!(set, offset+i);
-                for iii in 1..phi {
-                    insert_unique_btree!(set, indices_to_base_value(((ii+(iii-1)*(i) - 1)%phi)+1,iii));
+        let sender_0 = sender.clone();
+        thread::spawn(move ||
+            for i in 1..phi_n1 {
+                for ii in 1..phi {
+                    let mut set = BTreeSet::new();
+                    insert_unique_btree!(set, offset+i);
+                    for iii in 1..phi {
+                        insert_unique_btree!(set, indices_to_base_value(((ii+(iii-1)*(i) - 1)%phi_n1)+1,iii));
+                    }
+                    send!(sender_0, set);
                 }
-                insert_unique_hash!(sets, set);
             }
-        }
-
-        for i in 1..phi { 
-            let mut set = BTreeSet::new();
-            for ii in 1..=phi {
-                insert_unique_btree!(set, indices_to_base_value(ii, i));
+        );
+        let sender_0 = sender.clone();
+        thread::spawn(move ||
+            for i in 0..=phi {
+                let mut set = BTreeSet::new();
+                insert_unique_btree!(set, offset);
+                for ii in 1..phi {
+                    insert_unique_btree!(set, indices_to_base_value(i,ii));
+                }
+                send!(sender_0, set);
             }
+        );
+        thread::spawn(move ||
+            for i in 1..phi { 
+                let mut set = BTreeSet::new();
+                for ii in 1..=phi {
+                    insert_unique_btree!(set, indices_to_base_value(ii, i));
+                }
+                send!(sender, set);
+            }
+        );
+        
+        for set in receiver.iter() {
             insert_unique_hash!(sets, set);
-        }
+        }        
 
         opt_generator_return!(Batches {
             omicron,
@@ -484,17 +510,18 @@ impl Batches {
 
     /// omicron = phi^2
     #[must_use]
-    pub fn phi_2(phi: u32, offset: u32) -> Option<Batches> {
-        let omicron = phi*phi;
+    pub fn phi_2(phi: Int, offset: Int) -> Option<Batches> {
         if !phi.is_prime() {
             return None;
         }
+
+        let omicron = phi*phi;
 
         let mut sets = hashset(omicron as usize + phi as usize);
         
         let phi_n1 = phi-1;
 
-        let indices_to_base_value = move |row: u32, column: u32| offset+row*phi_n1+column;
+        let indices_to_base_value = move |row: Int, column: Int| offset+row*phi_n1+column;
 
         for i in 0..=phi {
             let mut set = BTreeSet::new();
@@ -569,7 +596,7 @@ impl Batches {
         });
     }
 
-    // pub fn phi_is_2(omicron: u32, offset: u32) -> Batches {
+    // pub fn phi_is_2(omicron: Int, offset: Int) -> Batches {
     //     assert_ne!(omicron, 1);
     //     let mut sets = hashset(omicron as usize * (omicron as usize - 1) / 2);
     //     let max = offset+omicron;

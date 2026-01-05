@@ -10,6 +10,7 @@ use crate::statics::*;
 use super::benches::*;
 use crate::triples_array::TriplesArray;
 use crate::units::stepped_iter;
+use crate::Int;
 
 #[test]
 fn phi_x_omicron_general() {
@@ -19,8 +20,8 @@ fn phi_x_omicron_general() {
     //     println!("RUST_BACKTRACE")
     // }
     println!();
-    let mut valid: BTreeSet<[u32; 2]> = BTreeSet::new();
-    let mut invalid: BTreeSet<[u32; 2]> = BTreeSet::new();
+    let mut valid: BTreeSet<[Int; 2]> = BTreeSet::new();
+    let mut invalid: BTreeSet<[Int; 2]> = BTreeSet::new();
 
     println!("triples_array");
     let start = Instant::now();
@@ -39,7 +40,7 @@ fn phi_x_omicron_general() {
         batches = batches.phi_x_omicron();
 
         match (batches.audit(), batches.omicron.test_quick(3)) {
-            (Ok(_), Ok(true)) | (Ok(_), Err(_)) => assert!(valid.insert([3, omicron as u32])),
+            (Ok(_), Ok(true)) | (Ok(_), Err(_)) => assert!(valid.insert([3, omicron as Int])),
             _ => panic!(),
         }
 
@@ -53,11 +54,11 @@ fn phi_x_omicron_general() {
 
             batches = batches.phi_x_omicron();
 
-            match (batches.audit(), batches.omicron.test_quick(phi as u32)) {
-                (Ok(_), Ok(true)) | (Ok(_), Err(_)) => assert!(valid.insert([phi as u32, omicron as u32]), "{phi}, {omicron}"),
+            match (batches.audit(), batches.omicron.test_quick(phi as Int)) {
+                (Ok(_), Ok(true)) | (Ok(_), Err(_)) => assert!(valid.insert([phi as Int, omicron as Int]), "{phi}, {omicron}"),
                 (Err(_), Err(_)) => {
                     // println!("{err}");
-                    assert!(invalid.insert([phi as u32, omicron as u32]));
+                    assert!(invalid.insert([phi as Int, omicron as Int]));
                     break;
                 },
                 (Err(err), Ok(false)) => panic!("{err}"),
@@ -206,22 +207,22 @@ fn phi_x_omicron_single() {
     //     println!("RUST_BACKTRACE")
     // }
     println!();
-    let mut valid: BTreeSet<[u32; 2]> = BTreeSet::new();
-    let mut invalid: BTreeSet<[u32; 2]> = BTreeSet::new();
-    // let mut valid: BTreeSet<[u32; 2]> = BTreeSet::from([[2, 3], [2, 4], [3, 7], [3, 9], [4, 13], [5, 25], [6, 31], [7, 49], [11, 121], [13, 169], [17, 289], [18, 307], [19, 361], [23, 529]]);
-    // let mut invalid: BTreeSet<[u32; 2]> = BTreeSet::from([[8, 57], [12, 133], [14, 183], [20, 381], [24, 553]]);
+    let mut valid: BTreeSet<[Int; 2]> = BTreeSet::new();
+    let mut invalid: BTreeSet<[Int; 2]> = BTreeSet::new();
+    // let mut valid: BTreeSet<[Int; 2]> = BTreeSet::from([[2, 3], [2, 4], [3, 7], [3, 9], [4, 13], [5, 25], [6, 31], [7, 49], [11, 121], [13, 169], [17, 289], [18, 307], [19, 361], [23, 529]]);
+    // let mut invalid: BTreeSet<[Int; 2]> = BTreeSet::from([[8, 57], [12, 133], [14, 183], [20, 381], [24, 553]]);
     let init = valid.is_empty();
 
-    fn checkups(valids: bool, init: bool, valid: &BTreeSet<[u32; 2]>, invalid: &BTreeSet<[u32; 2]>) {
+    fn checkups(valids: bool, init: bool, valid: &BTreeSet<[Int; 2]>, invalid: &BTreeSet<[Int; 2]>) {
         if !init {
             if valids {
                 println!("valid: {valid:?}");
-                println!("valid: phi: {:?}", valid.iter().map(|p|p[0]).dedup().collect::<Vec<u32>>());
-                println!("valid: omicron: {:?}", valid.iter().map(|p|p[1]).collect::<Vec<u32>>());
+                println!("valid: phi: {:?}", valid.iter().map(|p|p[0]).dedup().collect::<Vec<Int>>());
+                println!("valid: omicron: {:?}", valid.iter().map(|p|p[1]).collect::<Vec<Int>>());
             } else {
                 println!("invalid: {invalid:?}");
-                println!("invalid: phi: {:?}", invalid.iter().map(|p|p[0]).dedup().collect::<Vec<u32>>());
-                println!("invalid: omicron: {:?}", invalid.iter().map(|p|p[1]).collect::<Vec<u32>>());
+                println!("invalid: phi: {:?}", invalid.iter().map(|p|p[0]).dedup().collect::<Vec<Int>>());
+                println!("invalid: omicron: {:?}", invalid.iter().map(|p|p[1]).collect::<Vec<Int>>());
             }
         }
     }
@@ -300,11 +301,11 @@ fn phi_x_omicron_single() {
     println!("valid: {:?}", valid);
     println!("invalid: {:?}", invalid);
 
-    println!("valid phi: {:?}", valid.iter().map(|p|p[0]).dedup().collect::<Vec<u32>>());
-    println!("invalid phi: {:?}", invalid.iter().map(|p|p[0]).dedup().collect::<Vec<u32>>());
+    println!("valid phi: {:?}", valid.iter().map(|p|p[0]).dedup().collect::<Vec<Int>>());
+    println!("invalid phi: {:?}", invalid.iter().map(|p|p[0]).dedup().collect::<Vec<Int>>());
 
-    println!("valid omicron: {:?}", valid.iter().map(|p|p[1]).collect::<Vec<u32>>());
-    println!("invalid omicron: {:?}", invalid.iter().map(|p|p[1]).collect::<Vec<u32>>());
+    println!("valid omicron: {:?}", valid.iter().map(|p|p[1]).collect::<Vec<Int>>());
+    println!("invalid omicron: {:?}", invalid.iter().map(|p|p[1]).collect::<Vec<Int>>());
 
     println!();
 
@@ -324,22 +325,22 @@ fn phi_x_omicron_single() {
     //     println!("RUST_BACKTRACE")
     // }
     println!();
-    let mut valid: BTreeSet<[u32; 2]> = BTreeSet::new();
-    let mut invalid: BTreeSet<[u32; 2]> = BTreeSet::new();
-    // let mut valid: BTreeSet<[u32; 2]> = BTreeSet::from([[2, 3], [2, 4], [3, 7], [3, 9], [4, 13], [5, 25], [6, 31], [7, 49], [11, 121], [13, 169], [17, 289], [18, 307], [19, 361], [23, 529]]);
-    // let mut invalid: BTreeSet<[u32; 2]> = BTreeSet::from([[8, 57], [12, 133], [14, 183], [20, 381], [24, 553]]);
+    let mut valid: BTreeSet<[Int; 2]> = BTreeSet::new();
+    let mut invalid: BTreeSet<[Int; 2]> = BTreeSet::new();
+    // let mut valid: BTreeSet<[Int; 2]> = BTreeSet::from([[2, 3], [2, 4], [3, 7], [3, 9], [4, 13], [5, 25], [6, 31], [7, 49], [11, 121], [13, 169], [17, 289], [18, 307], [19, 361], [23, 529]]);
+    // let mut invalid: BTreeSet<[Int; 2]> = BTreeSet::from([[8, 57], [12, 133], [14, 183], [20, 381], [24, 553]]);
     let init = valid.is_empty();
 
-    fn checkups(valids: bool, init: bool, valid: &BTreeSet<[u32; 2]>, invalid: &BTreeSet<[u32; 2]>) {
+    fn checkups(valids: bool, init: bool, valid: &BTreeSet<[Int; 2]>, invalid: &BTreeSet<[Int; 2]>) {
         if !init {
             if valids {
                 println!("valid: {valid:?}");
-                println!("valid: phi: {:?}", valid.iter().map(|p|p[0]).dedup().collect::<Vec<u32>>());
-                println!("valid: omicron: {:?}", valid.iter().map(|p|p[1]).collect::<Vec<u32>>());
+                println!("valid: phi: {:?}", valid.iter().map(|p|p[0]).dedup().collect::<Vec<Int>>());
+                println!("valid: omicron: {:?}", valid.iter().map(|p|p[1]).collect::<Vec<Int>>());
             } else {
                 println!("invalid: {invalid:?}");
-                println!("invalid: phi: {:?}", invalid.iter().map(|p|p[0]).dedup().collect::<Vec<u32>>());
-                println!("invalid: omicron: {:?}", invalid.iter().map(|p|p[1]).collect::<Vec<u32>>());
+                println!("invalid: phi: {:?}", invalid.iter().map(|p|p[0]).dedup().collect::<Vec<Int>>());
+                println!("invalid: omicron: {:?}", invalid.iter().map(|p|p[1]).collect::<Vec<Int>>());
             }
         }
     }
@@ -420,11 +421,11 @@ fn phi_x_omicron_single() {
     println!("valid: {:?}", valid);
     println!("invalid: {:?}", invalid);
 
-    println!("valid phi: {:?}", valid.iter().map(|p|p[0]).dedup().collect::<Vec<u32>>());
-    println!("invalid phi: {:?}", invalid.iter().map(|p|p[0]).dedup().collect::<Vec<u32>>());
+    println!("valid phi: {:?}", valid.iter().map(|p|p[0]).dedup().collect::<Vec<Int>>());
+    println!("invalid phi: {:?}", invalid.iter().map(|p|p[0]).dedup().collect::<Vec<Int>>());
 
-    println!("valid omicron: {:?}", valid.iter().map(|p|p[1]).collect::<Vec<u32>>());
-    println!("invalid omicron: {:?}", invalid.iter().map(|p|p[1]).collect::<Vec<u32>>());
+    println!("valid omicron: {:?}", valid.iter().map(|p|p[1]).collect::<Vec<Int>>());
+    println!("invalid omicron: {:?}", invalid.iter().map(|p|p[1]).collect::<Vec<Int>>());
 
     println!();
 
@@ -433,15 +434,15 @@ fn phi_x_omicron_single() {
 
 }
 
-fn phi_x_omicron_test(phi: u32, base_omicron: u32) -> bool {
+fn phi_x_omicron_test(phi: Int, base_omicron: Int) -> bool {
     let pair_count = phi as usize * (phi as usize - 1) / 2 * base_omicron as usize * base_omicron as usize;
-    let mut pairs: hashbrown::HashSet<[u32; 2], rustc_hash::FxBuildHasher> = hashset(pair_count);
+    let mut pairs: hashbrown::HashSet<[Int; 2], rustc_hash::FxBuildHasher> = hashset(pair_count);
     
     for i in 0..base_omicron {
         for ii in 0..base_omicron {
             let set = (1..phi)
                 .map(|iii| base_omicron*iii + ((i*iii+ii) % base_omicron))
-                .collect::<Vec<u32>>();
+                .collect::<Vec<Int>>();
             for iii in 0..set.len() {
                 let x = set[iii];
                 #[expect(clippy::needless_range_loop)]

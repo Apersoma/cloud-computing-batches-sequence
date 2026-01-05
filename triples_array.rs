@@ -6,6 +6,7 @@ use hashbrown::HashSet;
 // use std:w:collections::HashSet;
 
 use crate::{batches::{self, *}, binary_collections::*, generator_return, insert_unique_hash, statics::*};
+use crate::Int;
 
 type Triple = (usize, usize, usize);
 type Pointer = (usize, usize);
@@ -387,7 +388,7 @@ impl From<TriplesArray> for Batches {
                     panic!()
                 } else if value.is_first_in_triple(Some((i,ii))) {
                     let triple = value.get_triple(Some((i,ii))).unwrap();
-                    insert_unique_hash!(sets, BTreeSet::from([triple.0 as u32, triple.1 as u32, triple.2 as u32]));
+                    insert_unique_hash!(sets, BTreeSet::from([triple.0 as Int, triple.1 as Int, triple.2 as Int]));
                 }
             }
         }

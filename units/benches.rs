@@ -1,7 +1,11 @@
 #![cfg(test)]
+use std::hint::black_box;
+use std::io::{Write, stdout};
 use std::time::{Duration, Instant};
 
+use crate::{Int, tests};
 use crate::batches::*;
+use crate::statics::*;
 // use crate::triples_array::*;
 
 #[inline(always)]
@@ -19,9 +23,9 @@ pub fn log_total_and_mean(duration: Duration, count: f64) {
     println!("mean: {}", format_duration(duration.div_f64(count)));
 }
 
-const SINGLETON_MIN: u32 = 10;
+const SINGLETON_MIN: Int = 10;
 const INCLUDE_PRE: bool = false;
-const SPLIT: bool = false;
+const SPLIT: bool = true;
 
 #[test]
 pub fn phi_eq_omicron_singleton() {
@@ -39,11 +43,10 @@ pub fn phi_eq_omicron_singleton() {
     }
 }
 
-fn phi_eq_omicron(min: u32, max: u32, log: bool) -> Duration {
+fn phi_eq_omicron(min: Int, max: Int, log: bool) -> Duration {
     let start = Instant::now();
     for phi in min..=max {
-        #[expect(unused_must_use)]
-        Batches::phi_equals_omicron(phi, 0);
+       black_box( Batches::phi_equals_omicron(phi, 0));
     }
     let elapsed = start.elapsed();
     if log {
@@ -73,11 +76,10 @@ pub fn phi_x_omicron_singleton() {
     // // println!("{}..{max}", mid+1);
     // phi_x_omicron(mid+1, max, true);
 
-fn phi_x_omicron(min: u32, max: u32, log: bool) -> Duration {
+fn phi_x_omicron(min: Int, max: Int, log: bool) -> Duration {
     let start = Instant::now();
     for phi in min..=max {
-        #[expect(unused_must_use)]
-        Batches::phi_equals_omicron(phi, 0).phi_x_omicron().phi_x_omicron();
+        black_box(Batches::phi_equals_omicron(phi, 0).phi_x_omicron().phi_x_omicron());
     }
     let elapsed = start.elapsed();
     if log {
@@ -93,7 +95,7 @@ pub fn phi_2_n_phi_p_1_singleton() {
         phi_2_n_phi_p_1(2, SINGLETON_MIN, true);
     }
     if SPLIT {
-        let mid: u32 = (max+SINGLETON_MIN)/2;
+        let mid: Int = (max+SINGLETON_MIN)/2;
         phi_2_n_phi_p_1(SINGLETON_MIN+1, mid, true);
         phi_2_n_phi_p_1(mid+1, max, true);
     } else {
@@ -101,11 +103,10 @@ pub fn phi_2_n_phi_p_1_singleton() {
     }
 }
 
-fn phi_2_n_phi_p_1(min: u32, max: u32, log: bool) -> Duration {
+fn phi_2_n_phi_p_1(min: Int, max: Int, log: bool) -> Duration {
     let start = Instant::now();
     for phi in min..=max {
-        #[expect(unused_must_use)]
-        Batches::phi_2_n_phi_p_1(phi, 0);
+        black_box(Batches::phi_2_n_phi_p_1(phi, 0));
     }
     let elapsed = start.elapsed();
     if log {
@@ -129,11 +130,10 @@ pub fn phi_2_singleton() {
     }
 }
 
-fn phi_2(min: u32, max: u32, log: bool) -> Duration {
+fn phi_2(min: Int, max: Int, log: bool) -> Duration {
     let start = Instant::now();
     for phi in min..=max {
-        #[expect(unused_must_use)]
-        Batches::phi_2(phi, 0);
+        black_box(Batches::phi_2(phi, 0));
     }
     let elapsed = start.elapsed();
     if log {
@@ -144,24 +144,25 @@ fn phi_2(min: u32, max: u32, log: bool) -> Duration {
 
 #[test]
 pub fn par_phi_2_comp_singleton() {
-    let max = 60;
+    let max = 100;
     if INCLUDE_PRE {
         par_phi_2_comp(2, SINGLETON_MIN, true);
+        println!();
     }
     if SPLIT {
         let mid = (max+SINGLETON_MIN)/2;
         par_phi_2_comp(SINGLETON_MIN+1, mid, true);
+        println!();
         par_phi_2_comp(mid+1, max, true);
     } else {
         par_phi_2_comp(SINGLETON_MIN, max, true);
     }
 }
 
-fn par_phi_2_comp(min: u32, max: u32, log: bool) -> (Duration, Duration) {
+fn par_phi_2_comp(min: Int, max: Int, log: bool) -> (Duration, Duration) {
     let start = Instant::now();
     for phi in min..=max {
-        #[expect(unused_must_use)]
-        Batches::phi_2(phi, 0);
+        black_box(Batches::phi_2(phi, 0));
     }
     let seq_elapsed = start.elapsed();
     println!("seq");
@@ -171,8 +172,7 @@ fn par_phi_2_comp(min: u32, max: u32, log: bool) -> (Duration, Duration) {
     
     let start = Instant::now();
     for phi in min..=max {
-        #[expect(unused_must_use)]
-        Batches::par_phi_2(phi, 0);
+        black_box(Batches::par_phi_2(phi, 0));
     }
     let par_elapsed = start.elapsed();
     println!("par");
@@ -181,6 +181,44 @@ fn par_phi_2_comp(min: u32, max: u32, log: bool) -> (Duration, Duration) {
     }
 
     (seq_elapsed, par_elapsed)
+}
+
+#[test]
+pub fn par_phi_2_swap() {
+    let min = 40;
+    let max = 400;
+    println!("\n");
+    println!("{:?}", tests::PRIMES.iter().filter(move|&&p|p>=min as u8).collect::<Vec<_>>());
+    print!(  "par is faster: ");
+    for phi in min..max {
+        if !phi.is_prime() {
+            if phi == 100 {
+                println!();
+            }
+            continue
+        };
+        let start = Instant::now();
+        for offset in 0..5 {
+            black_box(Batches::phi_2(phi, offset));
+        }
+        let seq_time = start.elapsed();
+        let start = Instant::now();
+        for offset in 0..5 {
+            black_box(Batches::par_phi_2(phi, offset));
+        }
+        let par_time = start.elapsed();
+        if phi < 100 {
+            if par_time < seq_time {
+                print!("{phi}, ");
+                stdout().flush().ok();
+            }
+        } else {
+            let par = par_time.as_secs_f64();
+            let seq = seq_time.as_secs_f64();
+            println!("{phi}: (seq_time - par_time)/seq_time = {:.3}", (seq - par) / seq)
+        }     
+    }
+    println!("\n");
 }
 
 #[test]

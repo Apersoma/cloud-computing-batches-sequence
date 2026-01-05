@@ -139,15 +139,12 @@ impl BatchNumber for usize {
 // impl BatchNumber for u64 {
 //     batch_number!(u128);
 // }
-
+impl BatchNumber for u16 {
+    batch_number!(u32);
+}
 impl BatchNumber for u32 {
     batch_number!(u64);
 }
-
-// impl BatchNumber for u16 {
-//     batch_number!(u32);
-// }
-
 // impl BatchNumber for u8 {
 //     batch_number!(u16);
 // }

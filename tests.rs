@@ -24,9 +24,14 @@ use crate::triples_array::TriplesArray;
 #[cfg(test)]
 #[allow(unused_imports)]
 use crate::binary_collections::BinaryCollection;
+#[cfg(test)]
+use crate::Int;
 //taken from A000040
 #[cfg(test)]
-const PRIMES: [u8; 54] = [2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67, 71, 73, 79, 83, 89, 97, 101, 103, 107, 109, 113, 127, 131, 137, 139, 149, 151, 157, 163, 167, 173, 179, 181, 191, 193, 197, 199, 211, 223, 227, 229, 233, 239, 241, 251];
+pub const PRIMES: [u8; 54] = [2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67, 71, 73, 79, 83, 89, 97, 101, 103, 107, 109, 113, 127, 131, 137, 139, 149, 151, 157, 163, 167, 173, 179, 181, 191, 193, 197, 199, 211, 223, 227, 229, 233, 239, 241, 251];
+
+#[allow(unused_imports)]
+use std::{time::{Instant, Duration}, thread::sleep};
 
 #[test]
 fn triples_array() {
@@ -76,7 +81,7 @@ fn primes() {
 
 #[test]
 fn test_phi_2_n_phi_p_1(){
-    let mut primes = PRIMES.into_iter().map(|p|p as u32);
+    let mut primes = PRIMES.into_iter().map(|p|p as Int);
     let mut prime = Some(1);
     for phi in 2..=40 {
         print!("phi: {phi:?}");
@@ -118,7 +123,7 @@ fn test_phi_2_n_phi_p_1(){
 
 #[test]
 fn test_phi_2() {
-    let mut primes = PRIMES.into_iter().map(|p|p as u32);
+    let mut primes = PRIMES.into_iter().map(|p|p as Int);
     let mut prime = primes.next();
     for phi in 2..=28 {
         print!("phi: {phi:?}");
@@ -174,14 +179,19 @@ fn test_phi_2() {
 fn test_phi_equal_omicron() {
     let mut rng = ThreadRng::default();
     rng.reseed().unwrap();
-    for x in 2..=u8::MAX as u32 {
-        assert_eq!(Batches::phi_equals_omicron(x, 0).to_string(), format!("{:?}", (0..x).collect::<BTreeSet<u32>>()));
+    for x in 2..=u8::MAX as Int {
+        assert_eq!(Batches::phi_equals_omicron(x, 0).to_string(), format!("{:?}", (0..x).collect::<BTreeSet<Int>>()));
         Batches::phi_equals_omicron(x, 0).audit().unwrap();
         Batches::phi_equals_omicron(x, 1).audit().unwrap();
         Batches::phi_equals_omicron(x, 2).audit().unwrap();
         Batches::phi_equals_omicron(x, 3).audit().unwrap();
-        Batches::phi_equals_omicron(x, rng.next_u32() % u16::MAX as u32).audit().unwrap();
+        Batches::phi_equals_omicron(x, random_offset(&mut rng)).audit().unwrap();
     }
+}
+
+#[cfg(test)]
+fn random_offset(rng: &mut ThreadRng) -> Int {
+    (rng.next_u32() >> (Int::MAX.to_le_bytes().len() * 4)) as Int
 }
 
 /*
@@ -202,7 +212,7 @@ fn test_phi_x_omicron() {
             
             let batch0 = Batches::phi_equals_omicron(phi, 0);
             let batch0 = batch0.phi_x_omicron();
-            let batch1 = Batches::phi_equals_omicron(phi, rng.next_u32() % u16::MAX as u3);
+            let batch1 = Batches::phi_equals_omicron(phi, random_offset(&mut rng));
             let batch1 = batch1.phi_x_omicron();
 
             // println!("\n{batch0}\n");
@@ -229,7 +239,7 @@ fn test_phi_x_omicron() {
             let batch0 = Batches::phi_2_n_phi_p_1(phi, 0).unwrap();
             let batch0 = batch0.phi_x_omicron();
             // println!("\n{batch0}\n");
-            let batch1 = Batches::phi_2_n_phi_p_1(phi, rng.next_u32() % u16::MAX as u3).unwrap();
+            let batch1 = Batches::phi_2_n_phi_p_1(phi, random_offset(&mut rng)).unwrap();
             let batch1 = batch1.phi_x_omicron();
 
             assert_eq!(batch0.phi, phi);
@@ -254,7 +264,7 @@ fn test_phi_x_omicron() {
             let batch0 = Batches::phi_2(phi, 0).unwrap();
             let batch0 = batch0.phi_x_omicron();
             // println!("\n{batch0}\n");
-            let batch1 = Batches::phi_2(phi, rng.next_u32() % u16::MAX as u3).unwrap();
+            let batch1 = Batches::phi_2(phi, random_offset(&mut rng)).unwrap();
             let batch1 = batch1.phi_x_omicron();
 
             assert_eq!(batch0.phi, phi);
@@ -273,7 +283,7 @@ fn test_phi_x_omicron() {
 
 
 #[cfg(not(debug_assertions))]
-// #[test]
+#[test]
 #[allow(unused)]
 pub fn isqrt_or_f_x_f() {
     sleep(Duration::from_millis(500));
