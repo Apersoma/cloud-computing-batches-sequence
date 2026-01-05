@@ -7,7 +7,7 @@ use itertools::Itertools;
 
 use crate::batches::*;
 use crate::statics::*;
-use super::*;
+use super::benches::*;
 use crate::triples_array::TriplesArray;
 use crate::units::stepped_iter;
 

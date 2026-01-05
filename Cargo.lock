@@ -76,9 +76,16 @@ version = "1.85.0"
 dependencies = [
  "hashbrown",
  "itertools",
+ "nohasher",
  "rand",
  "rustc-hash",
 ]
+
+[[package]]
+name = "nohasher"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c22286fd8bac2ccca67aca40e85f45e39edf7592535a982e48266ae399c4cfec"
 
 [[package]]
 name = "ppv-lite86"

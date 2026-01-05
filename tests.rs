@@ -78,7 +78,7 @@ fn primes() {
 fn test_phi_2_n_phi_p_1(){
     let mut primes = PRIMES.into_iter().map(|p|p as u32);
     let mut prime = Some(1);
-    for phi in 2..=28 {
+    for phi in 2..=40 {
         print!("phi: {phi:?}");
         let omicron = phi*(phi-1)+1;
         let valid = omicron.test_quick(phi);
@@ -89,32 +89,20 @@ fn test_phi_2_n_phi_p_1(){
             assert!(valid.is_err(), "valid: {valid:?} | phi: {phi:?} | omicron: {omicron:?} | prime: {prime:?}");
         }
 
-        print!("a");
         let batch0 = Batches::phi_2_n_phi_p_1(phi, 0);
-        print!("b");
         let batch1 = Batches::phi_2_n_phi_p_1(phi, 1);
-        print!("c");
-        let batch2 = Batches::phi_2_n_phi_p_1(phi, 2);
-        print!("d");        
+        let batch2 = Batches::phi_2_n_phi_p_1(phi, 2);       
 
         match valid {
             Ok(true) => {
                 if phi < 24 {
-                    print!("e");
                     batch0.unwrap().audit().unwrap();
-                    print!("f");
                     batch1.unwrap().audit().unwrap();
-                    print!("g");
                     batch2.unwrap().audit().unwrap();
-                    print!("h");
                 } else {
-                    print!("e");
                     batch0.unwrap();
-                    print!("f");
                     batch1.unwrap();
-                    print!("g");
                     batch2.unwrap();
-                    print!("h");
                 }
             },
             Ok(false) => panic!(),
