@@ -4,13 +4,12 @@ use std::fmt::{Debug, Display};
 use std::collections::BTreeSet;
 #[allow(unused_imports)]
 use std::mem;
-use rayon::iter::{IntoParallelIterator, IntoParallelRefMutIterator, ParallelIterator};
+use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use rustc_hash::FxBuildHasher;
 pub use rustc_hash::FxBuildHasher as BatchHasher;
 use hashbrown::HashSet;
 use rayon::iter::ParallelExtend;
-use crate::Int;
-use crate::statics::*;
+use crate::{Int, signed, signed_unsigned::*, statics::*};
 
 // #[allow(unused)]
 // type StdHashSet<T> = std::collections::HashSet<T>;
@@ -93,7 +92,7 @@ pub struct Batches {
     pub phi: Int,
     pub min: Int,
     pub max: Int,
-    pub sets: Vec<BTreeSet<Int>>,
+    pub sets: HashSet<BTreeSet<Int>, BatchHasher>,
     // pub sets: StdHashSet<BTreeSet<Int>>,
 }
 
@@ -110,28 +109,39 @@ impl Batches {
     }
 
     #[must_use]
-    pub fn shift(&mut self, shift: Int, increase: bool) {
-        if shift == 0 {return};
-        if increase {
-            //if any will fail, this will so everything else can be unchecked
-            self.max = self.max.strict_add(shift);
-            self.min = unsafe {self.max.unchecked_add(shift)};
-            self.sets.par_iter_mut().for_each(|s|
-                for e in s.clone() {
-                    s.remove(&e);
-                    unsafe {s.insert(e.unchecked_add(shift))};
+    pub fn shift(&self, shift: signed!(Int)) -> Batches {
+        if shift == 0 {return self.clone()}
+        let max = self.max.strict_add_signed(shift);
+        let min = self.min.strict_add_signed(shift);
+        
+        let mut new_sets = hashset(self.len());
+        if shift < 0 {
+            let shift = shift.cast_unsigned();
+            for mut set in self.sets.clone() {
+                for e in set.clone().into_iter().rev() {
+                    set.remove(&e);
+                    insert_unique_btree!(set, e.wrapping_add(shift));
                 }
-            );
+                insert_unique_hash!(new_sets, set);
+            }
         } else {
-            self.min = self.min.strict_sub(shift);
-            self.max = unsafe {self.max.unchecked_sub(shift)};
-            self.sets.par_iter_mut().for_each(|s|
-                for e in s.clone() {
-                    s.remove(&e);
-                    unsafe {s.insert(e.unchecked_sub(shift))};
+            let shift = shift.cast_unsigned();
+            for mut set in self.sets.clone() {
+                for e in set.clone() {
+                    set.remove(&e);
+                    insert_unique_btree!(set, e.wrapping_add(shift));
                 }
-            );
-        }        
+                insert_unique_hash!(new_sets, set);
+            }
+        }
+
+        generator_return!(Batches {
+            sets: new_sets,
+            min,
+            max,
+            omicron: self.omicron,
+            phi: self.phi
+        });
     }
 
     #[must_use]
@@ -372,7 +382,7 @@ impl Batches {
             phi,
             min: offset,
             max: phi-1+offset, 
-            sets: vec![BTreeSet::from_iter(offset..offset+phi)]
+            sets: [BTreeSet::from_iter(offset..offset+phi)].into_iter().collect() 
         });
     }
 
@@ -452,7 +462,7 @@ impl Batches {
         let phi_n1 = phi-1;
         let omicron = phi*(phi_n1)+1;
 
-        let mut sets = Vec::with_capacity(omicron as usize);
+        let mut sets = hashset(omicron as usize);
         
         let indices_to_base_value = move |row: Int, column: Int| offset+row*phi_n1+column;
 
@@ -460,7 +470,7 @@ impl Batches {
         
         let collector = thread::spawn(move || {
             for set in receiver.iter() {
-                sets.push(set);
+                insert_unique_hash!(sets, set);
             }
             sets
         });
@@ -517,7 +527,7 @@ impl Batches {
         let omicron = phi*(phi_n1)+1;
         
 
-        let mut sets = Vec::with_capacity(omicron as usize);
+        let mut sets = hashset(omicron as usize);
         let indices_to_base_value = move |row: Int, column: Int| offset+row*phi_n1+column;
 
         for i in 0..phi {
@@ -526,7 +536,7 @@ impl Batches {
             for ii in 1..phi {
                 insert_unique_btree!(set, indices_to_base_value(i,ii));
             }
-            sets.push(set);
+            insert_unique_hash!(sets, set);
         }
         for i in 1..phi_n1 {
             for ii in 1..phi {
