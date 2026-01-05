@@ -44,11 +44,13 @@ impl TriplesArray {
     }
 
     #[must_use]
+    #[cfg_attr(feature = "inline-more", inline)]
     pub fn batch_count(&self) -> usize {
         (self.omicron()*(self.omicron()-1))/6
     }
     
     #[must_use]
+    #[cfg_attr(feature = "inline-more", inline)]
     pub fn sort_triple(mut triple: Triple) -> Triple {
         if triple.0 < triple.1 {
             std::mem::swap(&mut triple.0, &mut triple.1);
@@ -62,6 +64,7 @@ impl TriplesArray {
         triple
     }
 
+    #[cfg_attr(feature = "inline-more", inline)]
     pub fn set_triple(&mut self, mut triple: Triple) {
         triple = Self::sort_triple(triple);
         self.arr[triple.0][triple.1] = Some(triple.2);
@@ -69,6 +72,7 @@ impl TriplesArray {
         self.arr[triple.1][triple.2] = Some(triple.0);
     }
     
+    #[cfg_attr(feature = "inline-more", inline)]
     pub fn remove_triple(&mut self, mut triple: Triple) {
         if triple.0 < triple.1 {
             std::mem::swap(&mut triple.0, &mut triple.1);
@@ -85,12 +89,14 @@ impl TriplesArray {
         self.arr[triple.1][triple.2] = None;
     }
 
+    #[inline]
     pub fn unset(&mut self, pointer: Option<Pointer>) {
         let Some(e) = self.get(pointer) else {return}; 
         let p: Pointer = pointer!(pointer, self);
         self.remove_triple((e, p.1, p.0));
     }
 
+    #[cfg_attr(feature = "inline-more", inline)]
     pub fn test(omicron: usize, status_updates: bool) -> bool {
         let cur = omicron.test_quick(3);
         if let Ok(ans) = cur {return ans};
@@ -101,19 +107,21 @@ impl TriplesArray {
     /*
         does absolutely no fastpathing for easily generated batches
      */
+    #[cfg_attr(feature = "inline-more", inline)]
     pub fn generate_stupid(omicron: usize, status_updates: bool) -> Result<Self, Self> {
         let mut arr = Self::new(omicron);
         if omicron == 2 {return Err(arr)};
-        if omicron > 13 && omicron != 15 && omicron != 19 {
-            println!("{}", arr.to_table());
-        }
+        // if omicron > 13 && omicron != 15 && omicron != 19 {
+        //     println!("{}", arr.to_table());
+        // }
         if arr.check(status_updates) {
             Ok(arr)
         } else {
             Err(arr)
         }
     }
-
+    
+    #[cfg_attr(feature = "inline-more", inline)]
     pub fn check(&mut self, status_updates: bool) -> bool {
         let mut i = 1u32;
         let mut cur = Instant::now();
@@ -136,6 +144,7 @@ impl TriplesArray {
     }
 
     #[must_use]
+    #[cfg_attr(feature = "inline-more", inline)]
     pub fn new(omicron: usize) -> TriplesArray {
         let mut arr = Vec::with_capacity(omicron);
         let mut column = Vec::with_capacity(0);
@@ -151,6 +160,7 @@ impl TriplesArray {
         this
     }
 
+    #[cfg_attr(feature = "inline-more", inline)]
     pub fn step(&mut self) -> Option<bool> {
         
         let prev_pointer = self.pointer;//@
@@ -181,6 +191,7 @@ impl TriplesArray {
         Some(false)
     }
 
+    #[cfg_attr(feature = "inline-more", inline)]
     pub fn pointer_to_front(&mut self) {
         while self.get(None).is_some() {
             if self.pointer.0 == self.len()-2 {
@@ -192,6 +203,7 @@ impl TriplesArray {
         }
     }
 
+    #[cfg_attr(feature = "inline-more", inline)]
     pub fn decrement_pointer(&mut self) {
         if self.pointer.0 == self.pointer.1 + 1 + (self.pointer.1&1) {
             self.pointer.1 -= 1;
@@ -201,6 +213,8 @@ impl TriplesArray {
         }
     }
 
+    #[must_use]
+    #[inline]
     pub fn is_first_in_triple(&self, pointer: Option<Pointer>) -> bool {
         let p: Pointer = pointer!(pointer, self);
         self.get(pointer).is_some_and(|e|e>p.0 && e>p.1)
@@ -208,6 +222,7 @@ impl TriplesArray {
 
     /// Defaults to the saved pointer if None is given
     #[must_use]
+    #[inline]
     pub fn pointer_inbounds(&self, pointer: Option<Pointer>) -> bool {
         let p = pointer!(pointer, self);
         p.0 < self.len() && p.1 < p.0
@@ -216,6 +231,7 @@ impl TriplesArray {
     /// Defaults to the saved pointer if None is given <br>
     /// Returns None if oob
     #[must_use]
+    #[inline]
     pub fn get(&self, pointer: Option<Pointer>) -> Option<usize> {
         let p = pointer!(pointer, self);
         self.arr.get(p.0)
@@ -226,6 +242,8 @@ impl TriplesArray {
             ).unwrap_or_default()
     }
 
+    #[must_use]
+    #[inline]
     pub fn get_triple(&self, pointer: Option<Pointer>) -> Option<Triple> {
         let p = pointer!(pointer, self);
         self.arr.get(p.0)
@@ -238,6 +256,7 @@ impl TriplesArray {
 
     /// Defaults to the saved pointer if None is given <br>
     /// if there is already a value at the pointer, it will return a value greater than that
+    #[cfg_attr(feature = "inline-more", inline)]
     pub fn min_valid_value(&mut self) -> Option<usize> {
         let mut min = (self.get(None).unwrap_or_default()+1).max(self.pointer.0+1).max(self.pointer.1+1);//@
         if min == self.len() {return None};
@@ -344,6 +363,7 @@ impl TriplesArray {
     }
 
     #[must_use]
+    #[inline]
     pub fn triple_set(&self, pointer: Option<Pointer>, offset: usize) -> String {
         let triple = self.get_triple(pointer).unwrap();
         format!(
