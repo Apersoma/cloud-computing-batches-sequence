@@ -430,6 +430,58 @@ impl Batches {
         });
     }
 
+    #[must_use]
+    pub fn par_phi_2(phi: u32, offset: u32) -> Option<Batches> {
+        let omicron = phi*phi;
+        if !phi.is_prime() {
+            return None;
+        }
+
+        let mut sets = hashset(omicron as usize + phi as usize);
+        
+        
+
+        let phi_n1 = phi-1;
+
+        let indices_to_base_value = move |row: u32, column: u32| offset+row*phi_n1+column;
+
+        for i in 0..=phi {
+            let mut set = BTreeSet::new();
+            insert_unique_btree!(set, offset);
+            for ii in 1..phi {
+                insert_unique_btree!(set, indices_to_base_value(i,ii));
+            }
+            insert_unique_hash!(sets, set);
+        }
+
+        for i in 1..phi {
+            for ii in 1..=phi {
+                let mut set = BTreeSet::new();
+                insert_unique_btree!(set, offset+i);
+                for iii in 1..phi {
+                    insert_unique_btree!(set, indices_to_base_value(((ii+(iii-1)*(i) - 1)%phi)+1,iii));
+                }
+                insert_unique_hash!(sets, set);
+            }
+        }
+
+        for i in 1..phi { 
+            let mut set = BTreeSet::new();
+            for ii in 1..=phi {
+                insert_unique_btree!(set, indices_to_base_value(ii, i));
+            }
+            insert_unique_hash!(sets, set);
+        }
+
+        opt_generator_return!(Batches {
+            omicron,
+            phi,
+            min: offset,
+            max: omicron - 1 + offset,
+            sets,
+        });
+    }
+
     /// omicron = phi^2
     #[must_use]
     pub fn phi_2(phi: u32, offset: u32) -> Option<Batches> {

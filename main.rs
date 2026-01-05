@@ -22,6 +22,8 @@ pub mod batches;
 mod tests;
 mod units;
 
+// use rayon::iter::ext
+use rayon::iter::*;
 
 use crate::statics::*;
 #[allow(unused_imports)]
@@ -33,15 +35,74 @@ use crate::batches::*;
 
     // #[cfg(not(debug_assertions))]
     // tests::isqrt_or_f_x_f();
+    
+pub type Int = u16;
 
 fn main() {
     println!("\nrunning\n");
-    println!("\nA question mark preceding a number means it was unable to be determined if it was in the sequence or not\n");
-
     // unsafe {
     //     env::set_var("RUST_BACKTRACE", "1");
     //     println!("RUST_BACKTRACE")
     // }
+    println!("\nA question mark preceding a number means it was unable to be determined if it was in the sequence or not\n");
+    
+    
+
+    let phi= 11;
+    let offset = 0;
+    let omicron = phi*phi;
+
+    let mut sets: hashbrown::HashSet<BTreeSet<Int>, BatchHasher> = hashset(omicron as usize + phi as usize);
+
+    let phi_n1 = phi-1;
+
+    let indices_to_base_value = move |row: Int, column: Int| offset+row*phi_n1+column;
+    
+    // let mut iter0 = (0..phi+1)
+    // #[cfg(target_pointer_width = "64")]
+    let mut iter0 = (1..=phi)
+        .map(|i|{
+            let mut mini_set = BTreeSet::new();
+            insert_unique_btree!(mini_set, offset);
+            for ii in 1..phi {
+                insert_unique_btree!(mini_set, indices_to_base_value(i,ii));
+            }
+            mini_set
+        });
+    let mut iter1 = (1..phi)
+        .flat_map(|i|(1..phi+1)
+        // .flat_map(|i|(1..=phi)
+            .map(move |ii| {
+                let mut mini_set = BTreeSet::new();
+                insert_unique_btree!(mini_set, offset+i);
+                for iii in 1..phi {
+                    insert_unique_btree!(mini_set, indices_to_base_value(((ii+(iii-1)*(i) - 1)%phi)+1,iii));
+                }
+                mini_set
+            })
+        );
+    let mut iter2 = (1..phi)
+        .map(|i|{
+            let mut mini_set = BTreeSet::new();
+            for ii in 1..=phi {
+                insert_unique_btree!(mini_set, indices_to_base_value(ii, i));
+            }
+            mini_set
+        });
+    
+    
+    // let iters: VecDeque<&mut dyn ExactSizeIterator<Item = _>> = iters.into_iter().collect::<VecDeque<_>>();
+    // let iters: Vec<&mut dyn ExactSizeIterator<Item = _>> = vec![
+    //     &mut iter0,
+    //     // &mut iter1,
+    //     &mut iter2,
+    // ];
+    //vec![.....].into_par_iter().flatten_iter().collect()
+    // vec![(0..50u8), (0..50u8)].into_par_iter()
+    // sets.par_extend(iters.par);
+
+    
+
 
     // let batches = Batches::phi_2_n_phi_p_1(2,0).unwrap();
     // println!("\n{}\n", batches.phi_x_omicron());
@@ -56,6 +117,52 @@ fn main() {
     // let batches = Batches::phi_2(5,0).unwrap();
     // println!("\n{}\n", batches.phi_x_omicron());
 }
+
+/*
+sudo code for the multithreading
+let set = HashSet::new();
+
+let thread_0 = Thread::from(||
+    HashSet::from_iter(foo_0())
+);
+thread_0.start();
+let thread_1 = Thread::from(||
+    HashSet::from_iter(foo_1())
+);
+thread_1.start();
+let thread_2 = Thread::from(||
+    HashSet::from_iter(foo_1())
+);
+thread_2.start();
+
+let mut thread_0_running = true;
+let mut thread_1_running = true;
+let mut thread_2_running = true;
+
+while thread_0_running || 
+    thread_1_running ||
+    thread_2_running 
+{
+    if thread_0_running && thread_0.finished() 
+    {
+        for val in thread_0.result() {
+            set.insert(val);
+        }
+    }
+    if thread_1_running && thread_1.finished() 
+    {
+        for val in thread_1.result() {
+            set.insert(val);
+        }
+    }
+    if thread_2_running && thread_2.finished() 
+    {
+        for val in thread_2.result() {
+            set.insert(val);
+        }
+    }
+}
+*/
 
 #[expect(non_snake_case, reason = "OEIS sequence")]
 #[allow(dead_code)]

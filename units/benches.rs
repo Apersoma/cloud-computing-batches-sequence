@@ -143,6 +143,47 @@ fn phi_2(min: u32, max: u32, log: bool) -> Duration {
 }
 
 #[test]
+pub fn par_phi_2_comp_singleton() {
+    let max = 60;
+    if INCLUDE_PRE {
+        par_phi_2_comp(2, SINGLETON_MIN, true);
+    }
+    if SPLIT {
+        let mid = (max+SINGLETON_MIN)/2;
+        par_phi_2_comp(SINGLETON_MIN+1, mid, true);
+        par_phi_2_comp(mid+1, max, true);
+    } else {
+        par_phi_2_comp(SINGLETON_MIN, max, true);
+    }
+}
+
+fn par_phi_2_comp(min: u32, max: u32, log: bool) -> (Duration, Duration) {
+    let start = Instant::now();
+    for phi in min..=max {
+        #[expect(unused_must_use)]
+        Batches::phi_2(phi, 0);
+    }
+    let seq_elapsed = start.elapsed();
+    println!("seq");
+    if log {
+        log_total_and_mean(seq_elapsed, (max - min + 1) as f64);
+    }
+    
+    let start = Instant::now();
+    for phi in min..=max {
+        #[expect(unused_must_use)]
+        Batches::par_phi_2(phi, 0);
+    }
+    let par_elapsed = start.elapsed();
+    println!("par");
+    if log {
+        log_total_and_mean(par_elapsed, (max - min + 1) as f64);
+    }
+
+    (seq_elapsed, par_elapsed)
+}
+
+#[test]
 pub fn batches_building() {
     println!("phi == omicron");
     phi_eq_omicron_singleton();
