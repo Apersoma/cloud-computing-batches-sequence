@@ -16,10 +16,6 @@ use std::collections::BTreeSet;
 #[allow(unused_imports)]
 use std::env;
 #[cfg(test)]
-use std::iter::Step;
-#[cfg(test)]
-use std::time::Instant;
-#[cfg(test)]
 use crate::batches::Batches;
 #[cfg(test)]
 use crate::statics::*;
@@ -31,12 +27,6 @@ use crate::binary_collections::BinaryCollection;
 //taken from A000040
 #[cfg(test)]
 const PRIMES: [u8; 54] = [2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67, 71, 73, 79, 83, 89, 97, 101, 103, 107, 109, 113, 127, 131, 137, 139, 149, 151, 157, 163, 167, 173, 179, 181, 191, 193, 197, 199, 211, 223, 227, 229, 233, 239, 241, 251];
-
-#[cfg(test)]
-fn print_elapsed(start: Instant) {
-    let duration = start.elapsed();
-    println!("duration: {}.{}", duration.as_secs(), duration.as_millis() % 1000);
-}
 
 #[test]
 fn triples_array() {
@@ -55,7 +45,6 @@ fn triples_array() {
         } else {
             assert_eq!(works, generation.is_ok());            
         }
-        
     }
     for omicron in 14..25 {
         let works = correct.contains(&omicron);
@@ -294,188 +283,6 @@ fn test_phi_x_omicron() {
 *///*/
 //*
 
-#[test]
-fn test_phi_x_omicron() {
-    fn to_iter<K: Step+Copy, const L: usize>(bounds: &[K; L]) -> impl Iterator<Item = (usize, K)> {
-        bounds
-            .array_windows::<2>()
-            .map(|p| (p[0]..p[1]).rev())
-            .rev()
-            .enumerate()
-            .flat_map(|v|v.1.map(move |e|(v.0, e)))
-    }
-    
-    println!("\n");
-    // unsafe {
-    //     env::set_var("RUST_BACKTRACE", "1");
-    //     println!("RUST_BACKTRACE")
-    // }
-    println!();
-    let mut valid: BTreeSet<[u32; 2]> = BTreeSet::new();
-    let mut invalid: BTreeSet<[u32; 2]> = BTreeSet::new();
-
-    println!("triples_array");
-    let start = Instant::now();
-    for mut omicron in [13, 15, 19usize] {
-        // println!("omicron: {omicron}");
-        let phi = 3usize;        
-        match omicron.test_quick(phi) {
-            Ok(true) => (),
-            Ok(false) => {
-                panic!();
-            }
-            Err(_) => panic!()
-        }
-        
-        let mut batches: Batches = TriplesArray::generate_stupid(omicron, false).unwrap().into();
-        batches = batches.phi_x_omicron();
-
-        match (batches.audit(), batches.omicron.test_quick(3)) {
-            (Ok(_), Ok(true)) | (Ok(_), Err(_)) => assert!(valid.insert([3, omicron as u32])),
-            _ => panic!(),
-        }
-
-        for _ in 0..3 {
-            // println!("|");
-
-            omicron *= phi;
-            // if let Ok(ans) = (omicron*phi).test_quick(phi) {
-            //     println!("{ans}");
-            // }
-
-            batches = batches.phi_x_omicron();
-
-            match (batches.audit(), batches.omicron.test_quick(phi as u32)) {
-                (Ok(_), Ok(true)) | (Ok(_), Err(_)) => assert!(valid.insert([phi as u32, omicron as u32]), "{phi}, {omicron}"),
-                (Err(_), Err(_)) => {
-                    // println!("{err}");
-                    assert!(invalid.insert([phi as u32, omicron as u32]));
-                    break;
-                },
-                (Err(err), Ok(false)) => panic!("{err}"),
-                // (Err(_), Ok(false)) => assert!(invalid_expected.insert([phi, omicron])),
-                (Err(err), Ok(true)) => panic!("{err}"),
-                (Ok(_), Ok(false)) => panic!(),
-            }
-        }
-    }
-    print_elapsed(start);
-
-    println!("\n");
-
-    println!("phi == omicron");
-    let start = Instant::now();
-    for (iterations, phi) in to_iter(&[2,3,15,40]) {
-        let mut omicron = phi;
-        match omicron.test_quick(phi) {
-            Ok(true) => (),
-            Ok(false) => {panic!();}
-            Err(_) => panic!(),
-        }
-        
-        let mut batches = Batches::phi_equals_omicron(phi, 0);
-        batches = batches.phi_x_omicron();
-
-        match (batches.audit(), batches.omicron.test_quick(phi)) {
-            (Ok(_), Ok(true)) | (Ok(_), Err(_)) => assert!(valid.insert([phi, omicron])),
-            (Err(_), Err(_)) => assert!(invalid.insert([phi, omicron])),
-            (Err(err), Ok(false)) => panic!("{err}"),
-            (Err(err), Ok(true)) => {
-                println!("{batches:?}");
-                panic!("{err}")
-            },
-            (Ok(_), Ok(false)) => panic!(),
-        }
-        
-        for _ in 0..iterations+3*(phi==2) as usize {
-            omicron *= phi;
-            batches = batches.phi_x_omicron();
-
-            match (batches.audit(), batches.omicron.test_quick(phi)) {
-                (Ok(_), Ok(true)) | (Ok(_), Err(_)) => assert!(valid.insert([phi, omicron]), "{phi}, {omicron}, {iterations}"),
-                (Err(_), Err(_)) => {
-                    // println!("{err}");
-                    assert!(invalid.insert([phi, omicron]));
-                    break;
-                },
-                (Err(err), Ok(false)) => panic!("{err}"),
-                // (Err(_), Ok(false)) => assert!(invalid_expected.insert([phi, omicron])),
-                (Err(err), Ok(true)) => panic!("{err}"),
-                (Ok(_), Ok(false)) => panic!(),
-            }
-        }
-    }
-    print_elapsed(start);
-
-    println!("\n");
-
-    println!("phi*phi - phi + 1 = omicron");
-    let start = Instant::now();
-    for (iterations, phi) in to_iter(&[2,3,16,17,18]) {
-        let iterations  = iterations + 2;
-        let mut omicron = phi*(phi-1)+1;
-        // println!("phi: {phi} | iterations: {iterations}");
-        match omicron.test_quick(phi) {
-            Ok(true) => (),
-            Ok(false) => panic!(),
-            Err(_) => continue,
-        }
-        
-        let mut batches = Batches::phi_2_n_phi_p_1(phi, 0).unwrap();
-        
-        batches = batches.phi_x_omicron();
-        match (batches.audit(), batches.omicron.test_quick(phi)) {
-            (Ok(_), Ok(true)) | (Ok(_), Err(_)) => assert!(valid.insert([phi, omicron]), "{phi}, {omicron}, {iterations}"),
-            (Err(_), Err(_)) => {
-                assert!(invalid.insert([phi, omicron]));
-                continue;
-            },
-            (Err(err), Ok(false)) => panic!("{err}"),
-            (Err(err), Ok(true)) => panic!("{err}"),
-            (Ok(_), Ok(false)) => panic!(),
-        }
-        
-        for _ in 0..iterations {
-
-            omicron *= phi;
-
-            batches = batches.phi_x_omicron();
-
-            match (batches.audit(), batches.omicron.test_quick(phi)) {
-                (Ok(_), Ok(true)) | (Ok(_), Err(_)) => assert!(valid.insert([phi, omicron]), "{phi}, {omicron}, {iterations}"),
-                (Err(_), Err(_)) => {
-                    assert!(invalid.insert([phi, omicron]));
-                    break;
-                },
-                (Err(err), Ok(false)) => panic!("{err}"),
-                (Err(err), Ok(true)) => panic!("{err}"),
-                (Ok(_), Ok(false)) => panic!(),
-            }
-        }
-    }
-    print_elapsed(start);
-    println!("\n");
-
-    println!(
-        "valid: {}", 
-        format!("{valid:?}")
-            .replace("[", "\\left(")
-            .replace("]", "\\right)")
-            .replacen("{", "\\left[", 1)
-            .replacen("}", "\\right]", 1)
-    );
-    println!();
-    println!(
-        "invalid: {}", 
-        format!("{invalid:?}")
-            .replace("[", "\\left(")
-            .replace("]", "\\right)")
-            .replacen("{", "\\left[", 1)
-            .replacen("}", "\\right]", 1)
-    );
-    println!();
-}
-//*/
 
 #[cfg(not(debug_assertions))]
 // #[test]

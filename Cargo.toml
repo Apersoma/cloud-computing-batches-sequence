@@ -12,3 +12,9 @@ rustc-hash = "2.1.1"
 [[bin]]
 name = "math"
 path = "main.rs"
+
+[lints.rust]
+unexpected_cfgs = { level = "forbid", check-cfg = [] }
+
+[features]
+fast-insertions = []

@@ -17,22 +17,34 @@ pub struct TriplesArray {
     pub mem: Vec<usize>,
 }
 
+macro_rules! pointer {
+    ($p:expr, $s:expr) => {
+        $p.unwrap_or($s.pointer)
+    };
+}
+
 impl TriplesArray {
     pub const PHI: usize = 3;
     
     #[expect(clippy::len_without_is_empty, reason="always false")]
+    #[must_use]
+    #[inline(always)]
     pub fn len(&self) -> usize {
         self.arr.len()
     }
     
+    #[must_use]
+    #[inline(always)]
     pub fn omicron(&self) -> usize {
         self.len()
     }
 
+    #[must_use]
     pub fn batch_count(&self) -> usize {
         (self.omicron()*(self.omicron()-1))/6
     }
     
+    #[must_use]
     pub fn sort_triple(mut triple: Triple) -> Triple {
         if triple.0 < triple.1 {
             std::mem::swap(&mut triple.0, &mut triple.1);
@@ -71,7 +83,7 @@ impl TriplesArray {
 
     pub fn unset(&mut self, pointer: Option<Pointer>) {
         let Some(e) = self.get(pointer) else {return}; 
-        let p: Pointer = pointer.unwrap_or(self.pointer);
+        let p: Pointer = pointer!(pointer, self);
         self.remove_triple((e, p.1, p.0));
     }
 
@@ -119,6 +131,7 @@ impl TriplesArray {
         }
     }
 
+    #[must_use]
     pub fn new(omicron: usize) -> TriplesArray {
         let mut arr = Vec::with_capacity(omicron);
         let mut column = Vec::with_capacity(0);
@@ -185,20 +198,22 @@ impl TriplesArray {
     }
 
     pub fn is_first_in_triple(&self, pointer: Option<Pointer>) -> bool {
-        let p: Pointer = pointer.unwrap_or(self.pointer);
+        let p: Pointer = pointer!(pointer, self);
         self.get(pointer).is_some_and(|e|e>p.0 && e>p.1)
     }
 
     /// Defaults to the saved pointer if None is given
+    #[must_use]
     pub fn pointer_inbounds(&self, pointer: Option<Pointer>) -> bool {
-        let p = pointer.unwrap_or(self.pointer);
+        let p = pointer!(pointer, self);
         p.0 < self.len() && p.1 < p.0
     }
     
     /// Defaults to the saved pointer if None is given <br>
     /// Returns None if oob
+    #[must_use]
     pub fn get(&self, pointer: Option<Pointer>) -> Option<usize> {
-        let p = pointer.unwrap_or(self.pointer);
+        let p = pointer!(pointer, self);
         self.arr.get(p.0)
             .map(|c|
                 c.get(p.1)
@@ -208,7 +223,7 @@ impl TriplesArray {
     }
 
     pub fn get_triple(&self, pointer: Option<Pointer>) -> Option<Triple> {
-        let p = pointer.unwrap_or(self.pointer);
+        let p = pointer!(pointer, self);
         self.arr.get(p.0)
             .map(|c|
                 c.get(p.1)
@@ -260,6 +275,7 @@ impl TriplesArray {
         }
     }
     
+    #[must_use]
     pub fn to_table(&self) -> String {
         let mut max = None;
         for x in self.arr.iter() {
@@ -304,6 +320,7 @@ impl TriplesArray {
         string
     } 
 
+    #[must_use]
     pub fn to_subsets(&self, offset: usize) -> String {
         // either "{0, 0, 0}"
         // or     
@@ -322,6 +339,7 @@ impl TriplesArray {
         string
     }
 
+    #[must_use]
     pub fn triple_set(&self, pointer: Option<Pointer>, offset: usize) -> String {
         let triple = self.get_triple(pointer).unwrap();
         format!(
@@ -332,6 +350,7 @@ impl TriplesArray {
         )
     }
 
+    #[must_use]
     pub fn from_string(string: &str) -> Self {
         let mut split: Vec<&str> = string.trim().split('\n').collect();
         split.pop();
@@ -358,8 +377,6 @@ impl TriplesArray {
     }
 }
 
-
-
 impl From<TriplesArray> for Batches {
     fn from(value: TriplesArray) -> Self {
         let omicron = value.omicron().try_into().unwrap();
@@ -383,3 +400,4 @@ impl From<TriplesArray> for Batches {
         });
     }   
 }
+

@@ -1,8 +1,10 @@
 {
     "cSpell.words": [
+        "cfgs",
         "itertools",
         "prevs",
         "replacen",
-        "rustc"
+        "rustc",
+        "valids"
     ]
 }

@@ -1,4 +1,4 @@
-use std::{collections::BTreeSet, fmt::Display};
+use std::{collections::BTreeSet, fmt::{Debug, Display}};
 #[allow(unused_imports)]
 use std::mem;
 use rustc_hash::FxBuildHasher;
@@ -51,9 +51,9 @@ macro_rules! opt_generator_return {
 #[macro_export]
 macro_rules! insert_unique_hash {
     ($set:expr, $e:expr) => {
-        #[cfg(debug_assertions)]
+        #[cfg(all(debug_assertions, not(feature = "fast-insertions")))]
         assert!($set.insert($e));
-        #[cfg(not(debug_assertions))]
+        #[cfg(not(all(debug_assertions, not(feature = "fast-insertions"))))]
         unsafe {$set.insert_unique_unchecked($e)}
     };
 }
@@ -61,9 +61,9 @@ macro_rules! insert_unique_hash {
 #[macro_export]
 macro_rules! insert_unique_btree {
     ($set:expr, $e:expr) => {
-        #[cfg(debug_assertions)]
+        #[cfg(all(debug_assertions, not(feature = "fast-insertions")))]
         assert!($set.insert($e));
-        #[cfg(not(debug_assertions))]
+        #[cfg(not(all(debug_assertions, not(feature = "fast-insertions"))))]
         $set.insert($e)
     };
 }
@@ -87,13 +87,19 @@ pub struct Batches {
     // pub sets: StdHashSet<BTreeSet<u32>>,
 }
 
+pub struct ValidationError {
+    pub err: String,
+    pub severe: bool
+}
 
 impl Batches {
     #[expect(clippy::len_without_is_empty)]
+    #[must_use]
     pub fn len(&self) -> usize {
         self.sets.len()
     }
 
+    #[must_use]
     pub fn shift(&self, shift: i32) -> Batches {
         if shift == 0 {return self.clone()}
         let max = self.max.strict_add_signed(shift);
@@ -129,47 +135,69 @@ impl Batches {
         });
     }
 
+    #[must_use]
     pub fn lambda(&self) -> u32 {
         (self.omicron - 1)/(self.phi - 1)
+    }
+
+    #[inline(always)]
+    pub fn pairs(&self) -> usize {
+        self.omicron as usize * (self.omicron as usize - 1) / 2
     }
     
     ///
     /// time complexity of `O(omicron²)`, and takes the longest when this is valid
     /// 
-    pub fn audit(&self) -> Result<Passed, String> {
+    pub fn audit(&self) -> Result<Passed, ValidationError> {
         if self.omicron - 1 + self.min != self.max {
-            return Err(format!("Phi is too small. \
-                phi = {}; omicron = {}; min = {}; max = {}", 
-                self.phi, self.omicron, self.min, self.max
-            ));
+            return Err(ValidationError {
+                err: format!(
+                    "Phi is too small. \
+                    phi = {}; omicron = {}; min = {}; max = {}", 
+                    self.phi, self.omicron, self.min, self.max
+                ),
+                severe: true
+            });
         }
         if self.phi <= 1 {
-            return Err(format!(
-                "Phi is too small. \
-                phi = {}; omicron = {}; min = {}; max = {}", 
-                self.phi, self.omicron, self.min, self.max
-            ));
+            return Err(ValidationError {
+                err: format!(
+                    "Phi is too small. \
+                    phi = {}; omicron = {}; min = {}; max = {}", 
+                    self.phi, self.omicron, self.min, self.max
+                ),
+                severe: true
+            });
         }
         if self.omicron <= 1 {
-            return Err(format!(
-                "Omicron is too small. \
-                phi = {}; omicron = {}; min = {}; max = {}", 
-                self.phi, self.omicron, self.min, self.max
-            ));
+            return Err(ValidationError {
+                err: format!(
+                    "Omicron is too small. \
+                    phi = {}; omicron = {}; min = {}; max = {}", 
+                    self.phi, self.omicron, self.min, self.max
+                ),
+                severe: true
+            });
         }
         if self.phi != self.omicron && self.phi > self.omicron.max_phi_weak() {
-            return Err(format!(
-                "phi is too large. \
-                phi = {}; omicron = {}",
-                self.phi, self.omicron
-            ));
+            return Err(ValidationError {
+                err: format!(
+                    "phi is too large. \
+                    phi = {}; omicron = {}",
+                    self.phi, self.omicron
+                ),
+                severe: true
+            });
         };
         if (self.omicron - 1) % (self.phi - 1) != 0 {
-            return Err(format!(
-                "Non-integral number of appearances of each element. \
-                phi = {}; omicron = {}; min = {}; max = {}; computed lambda = {}", 
-                self.phi, self.omicron, self.min, self.max, self.lambda()
-            ));
+            return Err(ValidationError {
+                err: format!(
+                    "Non-integral number of appearances of each element. \
+                    phi = {}; omicron = {}; min = {}; max = {}; computed lambda = {}", 
+                    self.phi, self.omicron, self.min, self.max, self.lambda()
+                ),
+                severe: true
+            });
         };
         // if test_quick(self.omicron, self.phi).is_ok_and(|v|!v) {
         //     panic!();
@@ -179,71 +207,95 @@ impl Batches {
         let p = self.phi*(self.phi - 1);
         let o = self.omicron*(self.omicron-1);
         if o % p != 0 {
-            return Err(format!(
-                "Correct number of batches is non-integral for the given phi and omicron. \
-                phi = {}; omicron = {}; min = {}; max = {}; expected len: {}; actual len: {}", 
-                self.phi, self.omicron, self.min, self.max, (o as f64)/(p as f64), self.sets.len()
-            ));
+            return Err(ValidationError {
+                err: format!(
+                    "Correct number of batches is non-integral for the given phi and omicron. \
+                    phi = {}; omicron = {}; min = {}; max = {}; expected len: {}; actual len: {}", 
+                    self.phi, self.omicron, self.min, self.max, (o as f64)/(p as f64), self.sets.len()
+                ),
+                severe: true
+            });
         }
         if self.sets.len() != (o / p) as usize {
-            return Err(format!(
-                "The number of batches is incorrect. \
-                phi = {}; omicron = {}; min = {}; max = {}; expected len: {}; actual len: {}", 
-                self.phi, self.omicron, self.min, self.max, o/p, self.sets.len()
-            ))
+            return Err(ValidationError {
+                err: format!(
+                    "The number of batches is incorrect. \
+                    phi = {}; omicron = {}; min = {}; max = {}; expected len: {}; actual len: {}", 
+                    self.phi, self.omicron, self.min, self.max, o/p, self.sets.len()
+                ),
+                severe: true
+            });
         }
         
         if self.phi == 2 {
             for set in self.sets.iter() {
                 if set.len() != 2 {
-                    return Err(format!(
-                        "Set is not size phi. set = {set:?}; \
-                        min = {}; max = {}; phi = {}; omicron = {}", 
-                        self.min, self.max, self.phi, self.omicron
-                    ));
+                    return Err(ValidationError {
+                            err: format!(
+                            "Set is not size phi. set = {set:?}; \
+                            min = {}; max = {}; phi = {}; omicron = {}", 
+                            self.min, self.max, self.phi, self.omicron
+                        ),
+                        severe: true
+                    });
                 }
                 if let Some(set_min) = set.first() && *set_min < self.min {
-                    return Err(format!(
-                        "Set contains number below minimum value. set.min = {set_min}; \
-                        min = {}; max = {}; phi = {}; omicron = {}", 
-                        self.min, self.max, self.phi, self.omicron
-                    ));
+                    return Err(ValidationError {
+                        err: format!(
+                            "Set contains number below minimum value. set.min = {set_min}; \
+                            min = {}; max = {}; phi = {}; omicron = {}", 
+                            self.min, self.max, self.phi, self.omicron
+                        ),
+                        severe: true
+                    });
                 }
                 if let Some(set_max) = set.last() && *set_max > self.max {
-                    return Err(format!(
-                        "Set contains number above maximum value. set.max = {set_max}; \
-                        min = {}; max = {}; phi = {}; omicron = {};  set = {set:?}", 
-                        self.min, self.max, self.phi, self.omicron
-                    ));
+                    return Err(ValidationError {
+                        err: format!(
+                            "Set contains number above maximum value. set.max = {set_max}; \
+                            min = {}; max = {}; phi = {}; omicron = {};  set = {set:?}", 
+                            self.min, self.max, self.phi, self.omicron
+                        ),
+                        severe: true
+                    });
                 }
             }
             return Ok(())
         }
+        
         if self.len() == 1 {
             let set = self.sets.iter().next().unwrap();
             if set.len() != self.phi as usize {
-                return Err(format!(
-                    "Set contains number. set = {set:?}; \
-                    min = {}; max = {}; phi = {}; omicron = {}", 
-                    self.min, self.max, self.phi, self.omicron
-                ));
+                return Err(ValidationError {
+                    err: format!(
+                        "Set is not size phi. set = {set:?}; \
+                        min = {}; max = {}; phi = {}; omicron = {}", 
+                        self.min, self.max, self.phi, self.omicron
+                    ),
+                    severe: true
+                });
             }
             if let Some(set_min) = set.first() && *set_min < self.min {
-                return Err(format!(
-                    "Set contains number below minimum value. set.min = {set_min}; \
-                    min = {}; max = {}; phi = {}; omicron = {}", 
-                    self.min, self.max, self.phi, self.omicron
-                ));
+                return Err(ValidationError {
+                    err: format!(
+                        "Set contains number below minimum value. set.min = {set_min}; \
+                        min = {}; max = {}; phi = {}; omicron = {}", 
+                        self.min, self.max, self.phi, self.omicron
+                    ),
+                    severe: true
+                });
             }
             if let Some(set_max) = set.last() && *set_max > self.max {
-                return Err(format!(
-                    "Set contains number above maximum value. set.max = {set_max}; \
-                    min = {}; max = {}; phi = {}; omicron = {};  set = {set:?}", 
-                    self.min, self.max, self.phi, self.omicron
-                ));
+                return Err(ValidationError {
+                    err: format!(
+                        "Set contains number above maximum value. set.max = {set_max}; \
+                        min = {}; max = {}; phi = {}; omicron = {};  set = {set:?}", 
+                        self.min, self.max, self.phi, self.omicron
+                    ),
+                    severe: true
+                });
             }
         }
-        
         let pair_count = ((self.omicron as usize -1)*self.omicron as usize)/2;
         // let mut pairs: HashSet<(u32, u32)> = HashSet::with_capacity(pair_count);
         // let mut pairs: StdHashSet<(u32, u32)> = StdHashSet::with_capacity(pair_count);
@@ -253,35 +305,47 @@ impl Batches {
         // O(omicron²/phi)
         for set in self.sets.iter() {
             if set.len() != self.phi as usize {
-                return Err(format!(
-                    "Set is not size phi. set = {set:?}; \
-                    min = {}; max = {}; phi = {}; omicron = {}", 
-                    self.min, self.max, self.phi, self.omicron
-                ));
+                return Err(ValidationError {
+                    err: format!(
+                        "Set is not size phi. set = {set:?}; \
+                        min = {}; max = {}; phi = {}; omicron = {}", 
+                        self.min, self.max, self.phi, self.omicron
+                    ),
+                    severe: true
+                });
             }
             if let Some(set_min) = set.first() && *set_min < self.min {
-                return Err(format!(
-                    "Set contains number below minimum value. set.min = {set_min}; \
-                    min = {}; max = {}; phi = {}; omicron = {}", 
-                    self.min, self.max, self.phi, self.omicron
-                ));
+                return Err(ValidationError {
+                    err: format!(
+                        "Set contains number below minimum value. set.min = {set_min}; \
+                        min = {}; max = {}; phi = {}; omicron = {}", 
+                        self.min, self.max, self.phi, self.omicron
+                    ),
+                    severe: true
+                });
             }
             if let Some(set_max) = set.last() && *set_max > self.max {
-                return Err(format!(
-                    "Set contains number above maximum value. set.max = {set_max}; \
-                    min = {}; max = {}; phi = {}; omicron = {};  set = {set:?}", 
-                    self.min, self.max, self.phi, self.omicron
-                ));
+                return Err(ValidationError {
+                    err: format!(
+                        "Set contains number above maximum value. set.max = {set_max}; \
+                        min = {}; max = {}; phi = {}; omicron = {};  set = {set:?}", 
+                        self.min, self.max, self.phi, self.omicron
+                    ),
+                    severe: true
+                });
             }
             let mut elements = set.iter();
             while let Some(&x) = elements.next() {
                 for &y in elements.clone() {
                     if !pairs.insert((x, y)) {
-                         return Err(format!(
-                            "Pair appears at least twice. pair = ({x}, {y}); \
-                            min = {}; max = {}; phi = {}; omicron = {}", 
-                            self.min, self.max, self.phi, self.omicron
-                        ));
+                        return Err(ValidationError {
+                            err: format!(
+                                "Pair appears at least twice. pair = ({x}, {y}); \
+                                min = {}; max = {}; phi = {}; omicron = {}", 
+                                self.min, self.max, self.phi, self.omicron
+                            ),
+                            severe: false
+                        });
                     }
                 }
             }
@@ -301,6 +365,7 @@ impl Batches {
     }
     // pub fn generate()
 
+    #[must_use]
     pub fn phi_equals_omicron(phi: u32, offset: u32) -> Batches {
         assert!(phi > 1);
         generator_return!(Batches { 
@@ -312,6 +377,8 @@ impl Batches {
         });
     }
 
+    /// omicron = phi^2 - phi + 1
+    #[must_use]
     pub fn phi_2_n_phi_p_1(phi: u32, offset: u32) -> Option<Batches> {
         let phi_n1 = phi-1;
         let omicron = phi*(phi_n1)+1;
@@ -331,24 +398,31 @@ impl Batches {
             }
             return None;
         }
+
         let mut sets = hashset(omicron as usize);
         let indices_to_base_value = |row: u32, column: u32| offset+row*phi_n1+column;
 
         for i in 0..phi {
             let mut set = BTreeSet::new();
             insert_unique_btree!(set, offset);
+            // set.insert(offset);
             for ii in 1..phi {
                 insert_unique_btree!(set, indices_to_base_value(i,ii));
+                // set.insert(indices_to_base_value(i,ii));
             }
             insert_unique_hash!(sets, set);
+            // sets.insert(set);
         }
         for i in 1..phi_n1 {
             for ii in 1..phi {
                 let mut set = BTreeSet::new();
+                // set.insert(offset+i);
                 insert_unique_btree!(set, offset+i);
                 for iii in 1..phi {
+                    // set.insert(indices_to_base_value(((ii+(iii-1)*(i) - 1)%phi_n1)+1,iii));
                     insert_unique_btree!(set, indices_to_base_value(((ii+(iii-1)*(i) - 1)%phi_n1)+1,iii));
                 }
+                // sets.insert_unique_unchecked(value)
                 insert_unique_hash!(sets, set);
             }
         }
@@ -370,6 +444,8 @@ impl Batches {
         });
     }
 
+    /// omicron = phi^2
+    #[must_use]
     pub fn phi_2(phi: u32, offset: u32) -> Option<Batches> {
         let omicron = phi*phi;
         if !phi.is_prime() {
@@ -423,7 +499,9 @@ impl Batches {
     }
 
     /// Creates a net set with the same phi and an omicron that is this omicron times phi
+    #[must_use]
     pub fn phi_x_omicron(&self) -> Batches {
+        // if self.phi == 2 {return Batches::phi_is_2(self.omicron*2, self.min)}
         let mut sets = self.sets.clone();
         sets.reserve((self.phi as usize - 1 + self.omicron as usize)*self.omicron as usize);
         
@@ -454,7 +532,23 @@ impl Batches {
             max: self.max + (self.phi-1)*self.omicron,
             sets,
         });
-    } 
+    }
+
+    // pub fn phi_is_2(omicron: u32, offset: u32) -> Batches {
+    //     assert_ne!(omicron, 1);
+    //     let mut sets = hashset(omicron as usize * (omicron as usize - 1) / 2);
+    //     let max = offset+omicron;
+    //     for a in offset..max {
+    //         sets.extend((a+1..max).map(|b|[a,b].into()));
+    //     }
+    //     Batches { 
+    //         omicron,
+    //         phi: 2, 
+    //         min: offset, 
+    //         max, 
+    //         sets
+    //     }   
+    // }
 }
 
 impl Display for Batches {
@@ -467,5 +561,25 @@ impl Display for Batches {
         }
         string.pop();
         f.write_str(&string)
+    }
+}
+
+impl Debug for ValidationError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if self.severe {
+            f.write_fmt(format_args!("=== Severe Batch Generation Error ===\n{}", self.err))
+        } else {
+            f.write_str(&self.err)
+        }
+    }
+}
+
+impl Display for ValidationError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if self.severe {
+            f.write_fmt(format_args!("=== Severe Batch Generation Error ===\n{}", self.err))
+        } else {
+            f.write_str(&self.err)
+        }
     }
 }
