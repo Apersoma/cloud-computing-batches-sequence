@@ -4,12 +4,13 @@ use std::fmt::{Debug, Display};
 use std::collections::BTreeSet;
 #[allow(unused_imports)]
 use std::mem;
-use rayon::iter::{IntoParallelIterator, ParallelIterator};
+use rayon::iter::{IntoParallelIterator, IntoParallelRefMutIterator, ParallelIterator};
 use rustc_hash::FxBuildHasher;
 pub use rustc_hash::FxBuildHasher as BatchHasher;
 use hashbrown::HashSet;
 use rayon::iter::ParallelExtend;
-use crate::{Int, signed, signed_unsigned::*, statics::*};
+use crate::Int;
+use crate::statics::*;
 
 // #[allow(unused)]
 // type StdHashSet<T> = std::collections::HashSet<T>;
@@ -92,7 +93,7 @@ pub struct Batches {
     pub phi: Int,
     pub min: Int,
     pub max: Int,
-    pub sets: HashSet<BTreeSet<Int>, BatchHasher>,
+    pub sets: Vec<BTreeSet<Int>>,
     // pub sets: StdHashSet<BTreeSet<Int>>,
 }
 
@@ -108,40 +109,28 @@ impl Batches {
         self.sets.len()
     }
 
-    #[must_use]
-    pub fn shift(&self, shift: signed!(Int)) -> Batches {
-        if shift == 0 {return self.clone()}
-        let max = self.max.strict_add_signed(shift);
-        let min = self.min.strict_add_signed(shift);
-        
-        let mut new_sets = hashset(self.len());
-        if shift < 0 {
-            let shift = shift.cast_unsigned();
-            for mut set in self.sets.clone() {
-                for e in set.clone().into_iter().rev() {
-                    set.remove(&e);
-                    insert_unique_btree!(set, e.wrapping_add(shift));
+    pub fn shift(&mut self, shift: Int, increase: bool) {
+        if shift == 0 {return};
+        if increase {
+            //if any will fail, this will so everything else can be unchecked
+            self.max = self.max.strict_add(shift);
+            self.min = unsafe {self.max.unchecked_add(shift)};
+            self.sets.par_iter_mut().for_each(|s|
+                for e in s.clone() {
+                    s.remove(&e);
+                    unsafe {s.insert(e.unchecked_add(shift))};
                 }
-                insert_unique_hash!(new_sets, set);
-            }
+            );
         } else {
-            let shift = shift.cast_unsigned();
-            for mut set in self.sets.clone() {
-                for e in set.clone() {
-                    set.remove(&e);
-                    insert_unique_btree!(set, e.wrapping_add(shift));
+            self.min = self.min.strict_sub(shift);
+            self.max = unsafe {self.max.unchecked_sub(shift)};
+            self.sets.par_iter_mut().for_each(|s|
+                for e in s.clone() {
+                    s.remove(&e);
+                    unsafe {s.insert(e.unchecked_sub(shift))};
                 }
-                insert_unique_hash!(new_sets, set);
-            }
-        }
-
-        generator_return!(Batches {
-            sets: new_sets,
-            min,
-            max,
-            omicron: self.omicron,
-            phi: self.phi
-        });
+            );
+        }        
     }
 
     #[must_use]
@@ -273,7 +262,7 @@ impl Batches {
         }
         
         if self.len() == 1 {
-            let set = self.sets.iter().next().unwrap();
+            let set = self.sets.first().unwrap();
             if set.len() != self.phi as usize {
                 return Err(ValidationError {
                     err: format!(
@@ -382,7 +371,7 @@ impl Batches {
             phi,
             min: offset,
             max: phi-1+offset, 
-            sets: [BTreeSet::from_iter(offset..offset+phi)].into_iter().collect() 
+            sets: vec![BTreeSet::from_iter(offset..offset+phi)]
         });
     }
 
@@ -462,7 +451,7 @@ impl Batches {
         let phi_n1 = phi-1;
         let omicron = phi*(phi_n1)+1;
 
-        let mut sets = hashset(omicron as usize);
+        let mut sets = Vec::with_capacity(omicron as usize);
         
         let indices_to_base_value = move |row: Int, column: Int| offset+row*phi_n1+column;
 
@@ -470,7 +459,7 @@ impl Batches {
         
         let collector = thread::spawn(move || {
             for set in receiver.iter() {
-                insert_unique_hash!(sets, set);
+                sets.push(set);
             }
             sets
         });
@@ -527,7 +516,7 @@ impl Batches {
         let omicron = phi*(phi_n1)+1;
         
 
-        let mut sets = hashset(omicron as usize);
+        let mut sets = Vec::with_capacity(omicron as usize);
         let indices_to_base_value = move |row: Int, column: Int| offset+row*phi_n1+column;
 
         for i in 0..phi {
@@ -536,7 +525,7 @@ impl Batches {
             for ii in 1..phi {
                 insert_unique_btree!(set, indices_to_base_value(i,ii));
             }
-            insert_unique_hash!(sets, set);
+            sets.push(set);
         }
         for i in 1..phi_n1 {
             for ii in 1..phi {
@@ -545,7 +534,7 @@ impl Batches {
                 for iii in 1..phi {
                     insert_unique_btree!(set, indices_to_base_value(((ii+(iii-1)*(i) - 1)%phi_n1)+1,iii));
                 }
-                insert_unique_hash!(sets, set);
+                sets.push(set);
             }
         }
         for i in 1..phi {
@@ -554,7 +543,7 @@ impl Batches {
             for ii in 1..phi {
                 insert_unique_btree!(set, indices_to_base_value(ii,i));
             }
-            insert_unique_hash!(sets, set);
+            sets.push(set);
         }
         
         Batches {
@@ -593,7 +582,7 @@ impl Batches {
         let phi_n1 = phi-1;
         let omicron = phi*phi;
 
-        let mut sets = hashset(omicron as usize + phi as usize);
+        let mut sets = Vec::with_capacity(omicron as usize + phi as usize);
         
         let indices_to_base_value = move |row: Int, column: Int| offset+row*phi_n1+column;
 
@@ -601,7 +590,7 @@ impl Batches {
         
         let collector = thread::spawn(move || {
             for set in receiver.iter() {
-                insert_unique_hash!(sets, set);
+                sets.push(set);
             }
             sets
         });
@@ -661,7 +650,7 @@ impl Batches {
     pub(crate) fn sequential_phi_2_unchecked(phi: Int, offset: Int) -> Batches {
         let omicron = phi*phi;
 
-        let mut sets = hashset(omicron as usize + phi as usize);
+        let mut sets = Vec::with_capacity(omicron as usize + phi as usize);
         
         let phi_n1 = phi-1;
 
@@ -673,7 +662,7 @@ impl Batches {
             for ii in 1..phi {
                 insert_unique_btree!(set, indices_to_base_value(i,ii));
             }
-            insert_unique_hash!(sets, set);
+            sets.push(set);
         }
 
         for i in 1..phi {
@@ -683,7 +672,7 @@ impl Batches {
                 for iii in 1..phi {
                     insert_unique_btree!(set, indices_to_base_value(((ii+(iii-1)*(i) - 1)%phi)+1,iii));
                 }
-                insert_unique_hash!(sets, set);
+                sets.push(set);
             }
         }
 
@@ -692,7 +681,7 @@ impl Batches {
             for ii in 1..=phi {
                 insert_unique_btree!(set, indices_to_base_value(ii, i));
             }
-            insert_unique_hash!(sets, set);
+            sets.push(set);
         }
 
         Batches {
@@ -719,7 +708,7 @@ impl Batches {
             // debug_assert!(self.min + offset > self.max);
             for og_set in self.sets.iter() {
                 // insert_unique_btree!(sets, BTreeSet::from_iter(og_set.iter().map(|e|e+offset)));
-                insert_unique_hash!(sets, BTreeSet::from_iter(og_set.iter().map(|e|e+offset)));
+                sets.push(BTreeSet::from_iter(og_set.iter().map(|e|e+offset)));
             }
         }
 
@@ -730,7 +719,7 @@ impl Batches {
                 for iii in 1..self.phi {
                     insert_unique_btree!(set, self.min + self.omicron*iii + ((i*iii+ii) % self.omicron));
                 }
-                insert_unique_hash!(sets, set);
+                sets.push(set);
             }
         } 
 
@@ -745,7 +734,7 @@ impl Batches {
 
     /// is parallel but via rayon
     pub fn batches_of_pairs(omicron: Int, offset: Int) -> Batches {
-        let mut sets = hashset(omicron as usize *(omicron as usize - 1) / 2);
+        let mut sets = Vec::with_capacity(omicron as usize *(omicron as usize - 1) / 2);
         sets.par_extend(
             (offset..omicron+offset)
             .into_par_iter()
