@@ -1,7 +1,7 @@
 use std::thread;
 use std::sync::mpsc::channel;
 use std::fmt::{Debug, Display};
-use std::collections::BTreeSet;
+use std::collections::{BTreeSet, LinkedList};
 #[allow(unused_imports)]
 use std::mem;
 use rayon::iter::{IntoParallelIterator, IntoParallelRefMutIterator, ParallelIterator};
@@ -93,7 +93,7 @@ pub struct Batches {
     pub phi: Int,
     pub min: Int,
     pub max: Int,
-    pub sets: Vec<BTreeSet<Int>>,
+    pub sets: LinkedList<BTreeSet<Int>>,
     // pub sets: StdHashSet<BTreeSet<Int>>,
 }
 
@@ -265,7 +265,7 @@ impl Batches {
         }
         
         if self.len() == 1 {
-            let set = self.sets.first().unwrap();
+            let set = self.sets.front().unwrap();
             if set.len() != self.phi as usize {
                 return Err(ValidationError {
                     err: format!(
@@ -375,7 +375,7 @@ impl Batches {
             phi,
             min: offset,
             max: phi-1+offset, 
-            sets: vec![BTreeSet::from_iter(offset..offset+phi)]
+            sets: LinkedList::from([BTreeSet::from_iter(offset..offset+phi)])
         });
     }
 
@@ -460,7 +460,7 @@ impl Batches {
         let phi_n1 = phi-1;
         let omicron = phi*(phi_n1)+1;
 
-        let mut sets = Vec::with_capacity(omicron as usize);
+        let mut sets = LinkedList::new();
         
         let indices_to_base_value = move |row: Int, column: Int| offset+row*phi_n1+column;
 
@@ -468,7 +468,7 @@ impl Batches {
         
         let collector = thread::spawn(move || {
             for set in receiver.iter() {
-                sets.push(set);
+                sets.push_front(set);
             }
             sets
         });
@@ -526,16 +526,16 @@ impl Batches {
         let omicron = phi*(phi_n1)+1;
         
 
-        let mut sets = Vec::with_capacity(omicron as usize);
+        let mut sets = LinkedList::new();
         let indices_to_base_value = move |row: Int, column: Int| offset+row*phi_n1+column;
-
+        
         for i in 0..phi {
             let mut set = BTreeSet::new();
             insert_unique_btree!(set, offset);
             for ii in 1..phi {
                 insert_unique_btree!(set, indices_to_base_value(i,ii));
             }
-            sets.push(set);
+            sets.push_front(set);
         }
         for i in 1..phi_n1 {
             for ii in 1..phi {
@@ -544,7 +544,7 @@ impl Batches {
                 for iii in 1..phi {
                     insert_unique_btree!(set, indices_to_base_value(((ii+(iii-1)*(i) - 1)%phi_n1)+1,iii));
                 }
-                sets.push(set);
+                sets.push_front(set);
             }
         }
         for i in 1..phi {
@@ -553,7 +553,7 @@ impl Batches {
             for ii in 1..phi {
                 insert_unique_btree!(set, indices_to_base_value(ii,i));
             }
-            sets.push(set);
+            sets.push_front(set);
         }
         
         Batches {
@@ -596,7 +596,7 @@ impl Batches {
         let phi_n1 = phi-1;
         let omicron = phi*phi;
 
-        let mut sets = Vec::with_capacity(omicron as usize + phi as usize);
+        let mut sets = LinkedList::new();
         
         let indices_to_base_value = move |row: Int, column: Int| offset+row*phi_n1+column;
 
@@ -604,7 +604,7 @@ impl Batches {
         
         let collector = thread::spawn(move || {
             for set in receiver.iter() {
-                sets.push(set);
+                sets.push_front(set);
             }
             sets
         });
@@ -667,7 +667,7 @@ impl Batches {
     pub(crate) fn sequential_phi_2_unchecked(phi: Int, offset: Int) -> Batches {
         let omicron = phi*phi;
 
-        let mut sets = Vec::with_capacity(omicron as usize + phi as usize);
+        let mut sets = LinkedList::new();
         
         let phi_n1 = phi-1;
 
@@ -679,7 +679,7 @@ impl Batches {
             for ii in 1..phi {
                 insert_unique_btree!(set, indices_to_base_value(i,ii));
             }
-            sets.push(set);
+            sets.push_front(set);
         }
 
         for i in 1..phi {
@@ -689,7 +689,7 @@ impl Batches {
                 for iii in 1..phi {
                     insert_unique_btree!(set, indices_to_base_value(((ii+(iii-1)*(i) - 1)%phi)+1,iii));
                 }
-                sets.push(set);
+                sets.push_front(set);
             }
         }
 
@@ -698,7 +698,7 @@ impl Batches {
             for ii in 1..=phi {
                 insert_unique_btree!(set, indices_to_base_value(ii, i));
             }
-            sets.push(set);
+            sets.push_front(set);
         }
 
         Batches {
@@ -719,14 +719,14 @@ impl Batches {
         }
         // if self.phi == 2 {return Batches::phi_is_2(self.omicron*2, self.min)}
         let mut sets = self.sets.clone();
-        sets.reserve((self.phi as usize - 1 + self.omicron as usize)*self.omicron as usize);
+        // sets.reserve((self.phi as usize - 1 + self.omicron as usize)*self.omicron as usize);
         
         for i in 1..self.phi {
             let offset = i*self.omicron;
             // debug_assert!(self.min + offset > self.max);
             for og_set in self.sets.iter() {
                 // insert_unique_btree!(sets, BTreeSet::from_iter(og_set.iter().map(|e|e+offset)));
-                sets.push(BTreeSet::from_iter(og_set.iter().map(|e|e+offset)));
+                sets.push_front(BTreeSet::from_iter(og_set.iter().map(|e|e+offset)));
             }
         }
 
@@ -737,7 +737,7 @@ impl Batches {
                 for iii in 1..self.phi {
                     insert_unique_btree!(set, self.min + self.omicron*iii + ((i*iii+ii) % self.omicron));
                 }
-                sets.push(set);
+                sets.push_front(set);
             }
         } 
 
@@ -754,7 +754,7 @@ impl Batches {
     #[must_use]
     #[cfg_attr(feature = "inline-more", inline)]
     pub fn batches_of_pairs(omicron: Int, offset: Int) -> Batches {
-        let mut sets = Vec::with_capacity(omicron as usize *(omicron as usize - 1) / 2);
+        let mut sets = LinkedList::new();
         sets.par_extend(
             (offset..omicron+offset)
             .into_par_iter()

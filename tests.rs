@@ -83,7 +83,7 @@ fn test_primes() {
 fn test_phi_2_n_phi_p_1(){
     let mut primes = PRIMES.into_iter().map(|p|p as Int);
     let mut prime = Some(1);
-    for phi in 2..=40 {
+    for phi in 2..=100 {
         print!("phi: {phi:?}");
         let omicron = phi*(phi-1)+1;
         let valid = omicron.test_quick(phi);
@@ -125,7 +125,7 @@ fn test_phi_2_n_phi_p_1(){
 fn test_phi_2() {
     let mut primes = PRIMES.into_iter().map(|p|p as Int);
     let mut prime = primes.next();
-    for phi in 2..=28 {
+    for phi in 2..=100 {
         print!("phi: {phi:?}");
         let omicron = phi*phi;
         let valid = omicron.test_quick(phi);

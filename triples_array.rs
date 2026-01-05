@@ -1,5 +1,6 @@
 
 
+use std::collections::LinkedList;
 use std::{collections::BTreeSet, time::Instant};
 #[allow(unused_imports)]
 use hashbrown::HashSet;
@@ -404,14 +405,14 @@ impl TriplesArray {
 impl From<TriplesArray> for Batches {
     fn from(value: TriplesArray) -> Self {
         let omicron = value.omicron().try_into().unwrap();
-        let mut sets = Vec::with_capacity(value.batch_count());
+        let mut sets = LinkedList::new();
         for i in 1..value.len() {
             for ii in 0..i {
                 if value.get(Some((i,ii))).is_none() {
                     panic!()
                 } else if value.is_first_in_triple(Some((i,ii))) {
                     let triple = value.get_triple(Some((i,ii))).unwrap();
-                    sets.push(BTreeSet::from([triple.0 as Int, triple.1 as Int, triple.2 as Int]));
+                    sets.push_front(BTreeSet::from([triple.0 as Int, triple.1 as Int, triple.2 as Int]));
                 }
             }
         }
