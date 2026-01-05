@@ -459,7 +459,13 @@ impl Batches {
         let indices_to_base_value = move |row: Int, column: Int| offset+row*phi_n1+column;
 
         let (sender, receiver) = channel();
-
+        
+        let collector = thread::spawn(move || {
+            for set in receiver.iter() {
+                insert_unique_hash!(sets, set);
+            }
+            sets
+        });
         
         let sender_0 = sender.clone();
         thread::spawn(move ||
@@ -494,17 +500,13 @@ impl Batches {
                 send!(sender, set);
             }
         );
-        
-        for set in receiver.iter() {
-            insert_unique_hash!(sets, set);
-        }        
 
         opt_generator_return!(Batches {
             omicron,
             phi,
             min: offset,
             max: omicron - 1 + offset,
-            sets,
+            sets: collector.join().unwrap(),
         });
     }
 

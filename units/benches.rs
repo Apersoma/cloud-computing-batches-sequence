@@ -187,9 +187,11 @@ fn par_phi_2_comp(min: Int, max: Int, log: bool) -> (Duration, Duration) {
 pub fn par_phi_2_swap() {
     let min = 40;
     let max = 400;
+    let iterations = 1;
     println!("\n");
     println!("{:?}", tests::PRIMES.iter().filter(move|&&p|p>=min as u8).collect::<Vec<_>>());
     print!(  "par is faster: ");
+    let mut a = 0.;
     for phi in min..max {
         if !phi.is_prime() {
             if phi == 100 {
@@ -198,12 +200,12 @@ pub fn par_phi_2_swap() {
             continue
         };
         let start = Instant::now();
-        for offset in 0..5 {
+        for offset in 0..iterations {
             black_box(Batches::phi_2(phi, offset));
         }
         let seq_time = start.elapsed();
         let start = Instant::now();
-        for offset in 0..5 {
+        for offset in 0..iterations {
             black_box(Batches::par_phi_2(phi, offset));
         }
         let par_time = start.elapsed();
@@ -215,8 +217,16 @@ pub fn par_phi_2_swap() {
         } else {
             let par = par_time.as_secs_f64();
             let seq = seq_time.as_secs_f64();
-            println!("{phi}: (seq_time - par_time)/seq_time = {:.3}", (seq - par) / seq)
-        }     
+            let p = (seq - par) / seq;
+            a += p;
+            println!("{phi}: (seq - par)/seq = {:.3}", p);
+            println!("{a}");
+        }
+
+        // if par_time < seq_time {
+        //     print!("{phi}, ");
+        //     stdout().flush().ok();
+        // }
     }
     println!("\n");
 }
