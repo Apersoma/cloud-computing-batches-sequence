@@ -387,15 +387,13 @@ impl Batches {
     /// omicron = phi^2 - phi + 1
     #[must_use]
     pub fn phi_2_n_phi_p_1(phi: Int, offset: Int) -> Option<Batches> {
-        let phi_n1 = phi-1;
-        let omicron = phi*(phi_n1)+1;
-        if !phi_n1.is_prime() {
+        if !(phi-1).is_prime() {
             if phi == 2 {
                 opt_generator_return!(Batches { 
-                    omicron,
+                    omicron: 3,
                     phi, 
                     min: offset, 
-                    max: omicron-1+offset,
+                    max: 2+offset,
                     sets: [
                         BTreeSet::from([offset, 1+offset]), 
                         BTreeSet::from([offset, 2+offset]),
@@ -405,6 +403,84 @@ impl Batches {
             }
             return None;
         }
+        if phi < 50 {
+            opt_generator_return!(Self::sequential_phi_2_n_phi_p_1(phi, offset));
+        } else {
+            opt_generator_return!(Self::parallel_phi_2_n_phi_p_1(phi, offset));
+        }
+    }
+
+
+    /// omicron = phi^2 - phi + 1
+    #[must_use]
+    pub fn parallel_phi_2_n_phi_p_1(phi: Int, offset: Int) -> Batches {
+        let phi_n1 = phi-1;
+        let omicron = phi*(phi_n1)+1;
+
+        let mut sets = hashset(omicron as usize);
+        
+        let indices_to_base_value = move |row: Int, column: Int| offset+row*phi_n1+column;
+
+        let (sender, receiver) = channel();
+        
+        let collector = thread::spawn(move || {
+            for set in receiver.iter() {
+                insert_unique_hash!(sets, set);
+            }
+            sets
+        });
+
+        let sender_0 = sender.clone();
+        thread::spawn(move ||
+            for i in 0..phi {
+                
+                let mut set = BTreeSet::new();
+                insert_unique_btree!(set, offset);
+                for ii in 1..phi {
+                    insert_unique_btree!(set, indices_to_base_value(i,ii));
+                }
+                send!(sender_0, set);
+            }
+        );
+        
+        for i in 1..phi_n1 {
+            let sender_0 = sender.clone();
+            thread::spawn(move ||
+                for ii in 1..phi {
+                    let mut set = BTreeSet::new();
+                    insert_unique_btree!(set, offset+i);
+                    for iii in 1..phi {
+                        insert_unique_btree!(set, indices_to_base_value(((ii+(iii-1)*(i) - 1)%phi_n1)+1,iii));
+                    }
+                    send!(sender_0, set);
+                }
+            );
+        }
+
+        for i in 1..phi {
+            let mut set = BTreeSet::new();
+            insert_unique_btree!(set, phi-1+offset);
+            for ii in 1..phi {
+                insert_unique_btree!(set, indices_to_base_value(ii,i));
+            }
+            send!(sender, set);
+        }
+        drop(sender);
+        Batches {
+            omicron,
+            phi,
+            min: offset,
+            max: omicron - 1 + offset,
+            sets: collector.join().unwrap(),
+        }
+    }
+
+    /// omicron = phi^2 - phi + 1
+    #[must_use]
+    pub(crate) fn sequential_phi_2_n_phi_p_1(phi: Int, offset: Int) -> Batches {
+        let phi_n1 = phi-1;
+        let omicron = phi*(phi_n1)+1;
+        
 
         let mut sets = hashset(omicron as usize);
         let indices_to_base_value = move |row: Int, column: Int| offset+row*phi_n1+column;
@@ -436,13 +512,13 @@ impl Batches {
             insert_unique_hash!(sets, set);
         }
         
-        opt_generator_return!(Batches {
+        Batches {
             omicron,
             phi,
             min: offset,
             max: omicron - 1 + offset,
             sets,
-        });
+        }
     }
 
     /// omicron = phi^2
@@ -491,7 +567,7 @@ impl Batches {
                 }
             );
         }
-        
+
         let sender_0 = sender.clone();
         thread::spawn(move ||
             for i in 0..=phi {
@@ -503,16 +579,15 @@ impl Batches {
                 send!(sender_0, set);
             }
         );
-        thread::spawn(move ||
-            for i in 1..phi { 
-                let mut set = BTreeSet::new();
-                for ii in 1..=phi {
-                    insert_unique_btree!(set, indices_to_base_value(ii, i));
-                }
-                send!(sender, set);
+        for i in 1..phi { 
+            let mut set = BTreeSet::new();
+            for ii in 1..=phi {
+                insert_unique_btree!(set, indices_to_base_value(ii, i));
             }
-        );
-
+            send!(sender, set);
+        }
+        drop(sender);
+        
         Batches {
             omicron,
             phi,

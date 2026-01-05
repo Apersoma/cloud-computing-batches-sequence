@@ -34,7 +34,7 @@ pub const PRIMES: [u8; 54] = [2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43
 use std::{time::{Instant, Duration}, thread::sleep};
 
 #[test]
-fn triples_array() {
+fn test_triples_array() {
     let correct = [3,7,9,13,15,19,21];
     for omicron in 3..=13 {
         let works = correct.contains(&omicron);
@@ -65,7 +65,7 @@ fn triples_array() {
 }
 
 #[test]
-fn primes() {
+fn test_primes() {
     let mut primes = PRIMES.into_iter();
     let mut prime = primes.next();
     for x in 0..=u8::MAX {
