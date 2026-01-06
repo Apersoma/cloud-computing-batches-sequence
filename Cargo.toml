@@ -21,3 +21,6 @@ unexpected_cfgs = { level = "forbid", check-cfg = [] }
 [features]
 fast-insertions = []
 inline-more = ["hashbrown/inline-more"]
+vec = []
+linked_unopt = []
+many_threaded = []

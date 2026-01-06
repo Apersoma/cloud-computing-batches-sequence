@@ -4,7 +4,7 @@ use std::fmt::{Debug, Display};
 use std::collections::BTreeSet;
 #[allow(unused_imports)]
 use std::mem;
-use rayon::iter::{IntoParallelIterator, IntoParallelRefMutIterator, ParallelIterator};
+use rayon::iter::{FromParallelIterator, IntoParallelIterator, IntoParallelRefIterator, IntoParallelRefMutIterator, ParallelIterator};
 use rustc_hash::FxBuildHasher;
 pub use rustc_hash::FxBuildHasher as BatchHasher;
 use hashbrown::HashSet;
@@ -596,13 +596,12 @@ impl Batches {
         let phi_n1 = phi-1;
         let omicron = phi*phi;
 
-        let mut sets = Vec::with_capacity(omicron as usize + phi as usize);
-        
         let indices_to_base_value = move |row: Int, column: Int| offset+row*phi_n1+column;
 
         let (sender, receiver) = channel();
         
         let collector = thread::spawn(move || {
+            let mut sets = Vec::with_capacity(omicron as usize + phi as usize);
             for set in receiver.iter() {
                 sets.push(set);
             }
@@ -713,21 +712,47 @@ impl Batches {
     /// Creates a net set with the same phi and an omicron that is this omicron times phi
     #[must_use]
     #[cfg_attr(feature = "inline-more", inline)]
-    pub fn phi_x_omicron(&self) -> Batches {
+    pub fn phi_x_omicron(mut self) -> Batches {
         if self.phi == 2 {
-            return Self::batches_of_pairs(self.omicron*2, self.min)
+            self.sets.reserve(self.omicron as usize * (2 * self.omicron as usize - 1) - self.len());
+            self.omicron *= 2;
+            let m = self.min+self.omicron;
+            self.sets.par_extend(
+                (self.max+1..m)
+                .into_par_iter()
+                .flat_map(|x|(self.min..x).into_par_iter().map(move |y|BTreeSet::from([x,y])))
+            );
+            self.max = m - 1;
+            generator_return!(self);
         }
-        // if self.phi == 2 {return Batches::phi_is_2(self.omicron*2, self.min)}
+        if self.omicron < 50 {
+            self.sequential_phi_x_omicron()
+        } else {
+            self.parallel_phi_x_omicron()
+        }
+    }
+
+    /// Creates a net set with the same phi and an omicron that is this omicron times phi
+    #[must_use]
+    #[cfg_attr(feature = "inline-more", inline)]
+    pub fn sequential_phi_x_omicron(self) -> Batches {
         let mut sets = self.sets.clone();
         sets.reserve((self.phi as usize - 1 + self.omicron as usize)*self.omicron as usize);
         
-        for i in 1..self.phi {
+        for i in 1..self.phi-1 {
             let offset = i*self.omicron;
             // debug_assert!(self.min + offset > self.max);
             for og_set in self.sets.iter() {
                 // insert_unique_btree!(sets, BTreeSet::from_iter(og_set.iter().map(|e|e+offset)));
                 sets.push(BTreeSet::from_iter(og_set.iter().map(|e|e+offset)));
             }
+        }
+
+        let offset = (self.phi-1)*self.omicron;
+        // debug_assert!(self.min + offset > self.max);
+        for og_set in self.sets {
+            // insert_unique_btree!(sets, BTreeSet::from_iter(og_set.iter().map(|e|e+offset)));
+            sets.push(BTreeSet::from_iter(og_set.iter().map(|e|e+offset)));
         }
 
         for i in 0..self.omicron {
@@ -749,6 +774,57 @@ impl Batches {
             sets,
         });
     }
+
+    /// Creates a net set with the same phi and an omicron that is this omicron times phi
+    #[must_use]
+    #[cfg_attr(feature = "inline-more", inline)]
+    pub fn parallel_phi_x_omicron(self) -> Batches {
+        let mut sets = self.sets.clone();
+        sets.reserve((self.phi as usize - 1 + self.omicron as usize)*self.omicron as usize);
+        
+        let (sender, receiver) = channel();
+
+        let collector = thread::spawn(move || {
+            for set in receiver.iter() {
+                sets.push(set);
+            }
+            sets
+        });
+        
+        
+        for i in 0..self.omicron {
+            let sender_0 = sender.clone();
+            thread::spawn(move ||{
+                for ii in 0..self.omicron {
+                    let mut set = BTreeSet::new();
+                    insert_unique_btree!(set, self.min + i);
+                    for iii in 1..self.phi {
+                        insert_unique_btree!(set, self.min + self.omicron*iii + ((i*iii+ii) % self.omicron));
+                    }
+                    send!(sender_0, set);
+                }
+            });
+        } 
+
+        {
+            for i in 1..self.phi {
+                let offset = i*self.omicron;
+                // debug_assert!(self.min + offset > self.max);
+                for og_set in self.sets.iter() {
+                    send!(sender, BTreeSet::from_par_iter(og_set.par_iter().map(|e|e+offset)));
+                }
+            }
+            drop(sender);
+        }
+
+        generator_return!(Batches {
+            omicron: self.omicron * self.phi,
+            max: self.max + (self.phi-1)*self.omicron,
+            sets: collector.join().unwrap(),
+            ..self
+        });
+    }
+
 
     /// is parallel but via rayon
     #[must_use]
