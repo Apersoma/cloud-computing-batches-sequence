@@ -174,7 +174,6 @@ pub fn clear_terminal() {
 
 pub trait Composition {
     #[expect(clippy::wrong_self_convention)]
-    #[cfg_attr(feature = "inline-more", inline)]
     fn is_prime(self) -> bool;
 }
 

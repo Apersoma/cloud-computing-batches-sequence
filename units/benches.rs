@@ -29,7 +29,8 @@ pub fn log_total_and_mean(duration: Duration, count: f64) {
 const SINGLETON_MIN: Int = 50;
 const INCLUDE_PRE: bool = false;
 const SPLIT: bool = false;
-const SINGLETON_LOGS: bool = false;
+const SINGLETON_LOGS: bool = true;
+
 #[test]
 pub fn phi_eq_omicron_singleton() {
     let min = SINGLETON_MIN*SINGLETON_MIN.isqrt();
@@ -189,8 +190,8 @@ fn par_phi_2_comp(min: Int, max: Int, log: bool) -> (Duration, Duration) {
 #[test]
 pub fn par_phi_2_alternate() {
     let min = 40;
-    let max = 100;
-    let iterations = 1;
+    let max = 130;
+    let iterations = 15;
     println!("\n");
     print!("par is faster: ");
     let mut a = 0.;
@@ -243,8 +244,8 @@ pub fn par_phi_2_alternate() {
 #[test]
 pub fn par_phi_2_n_phi_p_1_alternate() {
     let min = 40;
-    let max = 100;
-    let iterations = 1;
+    let max = 130;
+    let iterations = 15;
     println!("\n");
     println!("running");
     print!("par is faster: ");

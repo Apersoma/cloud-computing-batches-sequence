@@ -467,48 +467,73 @@ impl Batches {
         let (sender, receiver) = channel();
         
         let collector = thread::spawn(move || {
-            for set in receiver.iter() {
-                sets.push_front(set);
+            for mut new_sets in receiver.iter() {
+                sets.append(&mut new_sets);
             }
             sets
         });
-
+        
         let sender_0 = sender.clone();
         thread::spawn(move ||
-            for i in 0..phi {
-                
-                let mut set = BTreeSet::new();
-                insert_unique_btree!(set, offset);
-                for ii in 1..phi {
-                    insert_unique_btree!(set, indices_to_base_value(i,ii));
-                }
-                send!(sender_0, set);
-            }
-        );
-        
-        for i in 1..phi_n1 {
-            let sender_0 = sender.clone();
-            thread::spawn(move ||
+            for i in 1..phi_n1 {
+                let mut new_sets = LinkedList::new();
                 for ii in 1..phi {
                     let mut set = BTreeSet::new();
                     insert_unique_btree!(set, offset+i);
                     for iii in 1..phi {
                         insert_unique_btree!(set, indices_to_base_value(((ii+(iii-1)*(i) - 1)%phi_n1)+1,iii));
                     }
-                    send!(sender_0, set);
+                    new_sets.push_front(set);
                 }
-            );
+                send!(sender_0, new_sets);
+            }
+        );
+
+
+        // for i in 1..phi_n1 {
+        //     let sender_0 = sender.clone();
+        //     thread::spawn(move || {
+        //         let mut new_sets = LinkedList::new();
+        //         for ii in 1..phi {
+        //             let mut set = BTreeSet::new();
+        //             insert_unique_btree!(set, offset+i);
+        //             for iii in 1..phi {
+        //                 insert_unique_btree!(set, indices_to_base_value(((ii+(iii-1)*(i) - 1)%phi_n1)+1,iii));
+        //             }
+        //             new_sets.push_front(set);
+        //         }
+        //         send!(sender_0, new_sets);
+        //     });
+        // }
+
+        let sender_0 = sender.clone();
+        thread::spawn(move ||{
+            let mut new_sets = LinkedList::new();
+            for i in 0..phi {
+                let mut set = BTreeSet::new();
+                insert_unique_btree!(set, offset);
+                for ii in 1..phi {
+                    insert_unique_btree!(set, indices_to_base_value(i,ii));
+                }
+                new_sets.push_front(set)
+            }
+            send!(sender_0, new_sets);
+        });
+        
+        //not inside a thread because it would be necessary to wait for it to complete anyway
+        {
+            let new_sets = LinkedList::new();
+            for i in 1..phi {
+                let mut set = BTreeSet::new();
+                insert_unique_btree!(set, phi-1+offset);
+                for ii in 1..phi {
+                    insert_unique_btree!(set, indices_to_base_value(ii,i));
+                }
+            }
+            send!(sender, new_sets);
+            drop(sender);
         }
 
-        for i in 1..phi {
-            let mut set = BTreeSet::new();
-            insert_unique_btree!(set, phi-1+offset);
-            for ii in 1..phi {
-                insert_unique_btree!(set, indices_to_base_value(ii,i));
-            }
-            send!(sender, set);
-        }
-        drop(sender);
         Batches {
             omicron,
             phi,
@@ -603,45 +628,74 @@ impl Batches {
         let (sender, receiver) = channel();
         
         let collector = thread::spawn(move || {
-            for set in receiver.iter() {
-                sets.push_front(set);
+            for mut set in receiver.iter() {
+                sets.append(&mut set);
             }
             sets
         });
         
-        for i in 1..phi_n1 {
-            let sender_0 = sender.clone();
-            thread::spawn(move ||
+        let sender_0 = sender.clone();
+        thread::spawn(move || {
+            for i in 1..phi_n1 {
+                let mut new_sets = LinkedList::new();
                 for ii in 1..phi {
                     let mut set = BTreeSet::new();
                     insert_unique_btree!(set, offset+i);
                     for iii in 1..phi {
                         insert_unique_btree!(set, indices_to_base_value(((ii+(iii-1)*(i) - 1)%phi_n1)+1,iii));
                     }
-                    send!(sender_0, set);
+                    new_sets.push_front(set);
                 }
-            );
-        }
+                send!(sender_0, new_sets);
+            }
+        });
+
+        // for i in 1..phi_n1 {
+        //     let sender_0 = sender.clone();
+        //     thread::spawn(move || {
+        //         let mut new_sets = LinkedList::new();
+        //         for ii in 1..phi {
+        //             let mut set = BTreeSet::new();
+        //             insert_unique_btree!(set, offset+i);
+        //             for iii in 1..phi {
+        //                 insert_unique_btree!(set, indices_to_base_value(((ii+(iii-1)*(i) - 1)%phi_n1)+1,iii));
+        //             }
+        //             new_sets.push_front(set);
+        //         }
+        //         send!(sender_0, new_sets);
+        //     });
+        // }
+
+
+        
 
         let sender_0 = sender.clone();
-        thread::spawn(move ||
+        thread::spawn(move || {
+            let mut new_sets = LinkedList::new();
             for i in 0..=phi {
                 let mut set = BTreeSet::new();
                 insert_unique_btree!(set, offset);
                 for ii in 1..phi {
                     insert_unique_btree!(set, indices_to_base_value(i,ii));
                 }
-                send!(sender_0, set);
+                new_sets.push_front(set);
             }
-        );
-        for i in 1..phi { 
-            let mut set = BTreeSet::new();
-            for ii in 1..=phi {
-                insert_unique_btree!(set, indices_to_base_value(ii, i));
+            send!(sender_0, new_sets);
+        });
+
+        // would have to wait for this thread to terminate anyway so its faster
+        // to do this and not have the overhead
+        {
+            let new_sets = LinkedList::new();
+            for i in 1..phi { 
+                let mut set = BTreeSet::new();
+                for ii in 1..=phi {
+                    insert_unique_btree!(set, indices_to_base_value(ii, i));
+                }
             }
-            send!(sender, set);
+            send!(sender, new_sets);
+            drop(sender);
         }
-        drop(sender);
 
         Batches {
             omicron,
@@ -739,7 +793,7 @@ impl Batches {
                 }
                 sets.push_front(set);
             }
-        } 
+        }
 
         generator_return!(Batches {
             omicron: self.omicron * self.phi,
@@ -757,8 +811,10 @@ impl Batches {
         let mut sets = LinkedList::new();
         sets.par_extend(
             (offset..omicron+offset)
-            .into_par_iter()
-            .flat_map(|x|(offset..x).into_par_iter().map(move |y|BTreeSet::from([x,y])))
+                .into_par_iter()
+                .flat_map(|x|(offset..x)
+                .into_par_iter()
+                .map(move |y|BTreeSet::from([x,y])))
         );
         generator_return!(Batches {
             omicron,
