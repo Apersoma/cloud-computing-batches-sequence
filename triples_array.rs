@@ -5,8 +5,11 @@ use std::{collections::BTreeSet, time::Instant};
 use hashbrown::HashSet;
 // use std:w:collections::HashSet;
 
-use crate::{batches::{self, *}, binary_collections::*, generator_return, insert_unique_hash, statics::*};
+use crate::batches::*;
+use crate::generator_return;
 use crate::Int;
+use crate::binary_collections::*;
+use crate::statics::*;
 
 type Triple = (usize, usize, usize);
 type Pointer = (usize, usize);
@@ -401,14 +404,14 @@ impl TriplesArray {
 impl From<TriplesArray> for Batches {
     fn from(value: TriplesArray) -> Self {
         let omicron = value.omicron().try_into().unwrap();
-        let mut sets = batches::hashset(value.batch_count());
+        let mut sets = Vec::with_capacity(value.batch_count());
         for i in 1..value.len() {
             for ii in 0..i {
                 if value.get(Some((i,ii))).is_none() {
                     panic!()
                 } else if value.is_first_in_triple(Some((i,ii))) {
                     let triple = value.get_triple(Some((i,ii))).unwrap();
-                    insert_unique_hash!(sets, BTreeSet::from([triple.0 as Int, triple.1 as Int, triple.2 as Int]));
+                    sets.push(BTreeSet::from([triple.0 as Int, triple.1 as Int, triple.2 as Int]));
                 }
             }
         }
