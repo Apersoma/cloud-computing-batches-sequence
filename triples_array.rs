@@ -9,6 +9,7 @@ use crate::batches::*;
 use crate::generator_return;
 use crate::Int;
 use crate::binary_collections::*;
+use crate::push_element;
 use crate::statics::*;
 
 type Triple = (usize, usize, usize);
@@ -404,17 +405,22 @@ impl TriplesArray {
 impl From<TriplesArray> for Batches {
     fn from(value: TriplesArray) -> Self {
         let omicron = value.omicron().try_into().unwrap();
+        #[cfg(feature = "vec")]
         let mut sets = Vec::with_capacity(value.batch_count());
+        #[cfg(not(feature = "vec"))]
+        let mut sets = std::collections::LinkedList::new();
+        
         for i in 1..value.len() {
             for ii in 0..i {
                 if value.get(Some((i,ii))).is_none() {
                     panic!()
                 } else if value.is_first_in_triple(Some((i,ii))) {
                     let triple = value.get_triple(Some((i,ii))).unwrap();
-                    sets.push(BTreeSet::from([triple.0 as Int, triple.1 as Int, triple.2 as Int]));
+                    push_element!(sets, BTreeSet::from([triple.0 as Int, triple.1 as Int, triple.2 as Int]));
                 }
             }
         }
+        
         generator_return!(Batches { 
             omicron,
             phi: 3,

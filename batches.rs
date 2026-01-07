@@ -3,6 +3,8 @@ use std::sync::mpsc::channel;
 use std::fmt::{Debug, Display};
 use std::collections::BTreeSet;
 #[allow(unused_imports)]
+use std::collections::LinkedList;
+#[allow(unused_imports)]
 use std::mem;
 use rayon::iter::{FromParallelIterator, IntoParallelIterator, IntoParallelRefIterator, IntoParallelRefMutIterator, ParallelIterator};
 use rustc_hash::FxBuildHasher;
@@ -68,6 +70,16 @@ macro_rules! insert_unique_btree {
     };
 }
 
+#[macro_export]
+macro_rules! push_element {
+    ($sets:expr, $set:expr) => {
+        #[cfg(feature = "vec")]
+        $sets.push($set);
+        #[cfg(not(feature = "vec"))]
+        $sets.push_front($set);
+    };
+}
+
 macro_rules! send {
     ($s:expr, $v:expr) => {
         #[cfg(debug_assertions)]
@@ -93,14 +105,19 @@ pub struct Batches {
     pub phi: Int,
     pub min: Int,
     pub max: Int,
+    #[cfg(feature = "vec")]
     pub sets: Vec<BTreeSet<Int>>,
-    // pub sets: StdHashSet<BTreeSet<Int>>,
+    #[cfg(not(feature = "vec"))]
+    pub sets: LinkedList<BTreeSet<Int>>,
 }
 
 pub struct ValidationError {
     pub err: String,
     pub severe: bool
 }
+
+
+
 
 impl Batches {
     #[expect(clippy::len_without_is_empty)]
@@ -265,7 +282,10 @@ impl Batches {
         }
         
         if self.len() == 1 {
+            #[cfg(feature = "vec")]
             let set = self.sets.first().unwrap();
+            #[cfg(not(feature = "vec"))]
+            let set = self.sets.front().unwrap();
             if set.len() != self.phi as usize {
                 return Err(ValidationError {
                     err: format!(
@@ -374,8 +394,11 @@ impl Batches {
             omicron: phi,
             phi,
             min: offset,
-            max: phi-1+offset, 
-            sets: vec![BTreeSet::from_iter(offset..offset+phi)]
+            max: phi-1+offset,
+            #[cfg(feature = "vec")]
+            sets: vec![BTreeSet::from_iter(offset..offset+phi)],
+            #[cfg(not(feature = "vec"))]
+            sets: LinkedList::from([BTreeSet::from_iter(offset..offset+phi)]),
         });
     }
 
@@ -459,16 +482,17 @@ impl Batches {
     pub(crate) fn parallel_phi_2_n_phi_p_1_unchecked(phi: Int, offset: Int) -> Batches {
         let phi_n1 = phi-1;
         let omicron = phi*(phi_n1)+1;
-
-        let mut sets = Vec::with_capacity(omicron as usize);
-        
         let indices_to_base_value = move |row: Int, column: Int| offset+row*phi_n1+column;
 
         let (sender, receiver) = channel();
         
         let collector = thread::spawn(move || {
+            #[cfg(feature = "vec")]
+            let mut sets = Vec::with_capacity(omicron as usize);
+            #[cfg(not(feature = "vec"))]
+            let mut sets = LinkedList::new();
             for set in receiver.iter() {
-                sets.push(set);
+                push_element!(sets, set);
             }
             sets
         });
@@ -476,7 +500,6 @@ impl Batches {
         let sender_0 = sender.clone();
         thread::spawn(move ||
             for i in 0..phi {
-                
                 let mut set = BTreeSet::new();
                 insert_unique_btree!(set, offset);
                 for ii in 1..phi {
@@ -524,10 +547,12 @@ impl Batches {
     pub(crate) fn sequential_phi_2_n_phi_p_1_unchecked(phi: Int, offset: Int) -> Batches {
         let phi_n1 = phi-1;
         let omicron = phi*(phi_n1)+1;
-        
-
-        let mut sets = Vec::with_capacity(omicron as usize);
         let indices_to_base_value = move |row: Int, column: Int| offset+row*phi_n1+column;
+
+        #[cfg(feature = "vec")]
+        let mut sets = Vec::with_capacity(omicron as usize);
+        #[cfg(not(feature = "vec"))]
+        let mut sets = LinkedList::new();
 
         for i in 0..phi {
             let mut set = BTreeSet::new();
@@ -535,7 +560,7 @@ impl Batches {
             for ii in 1..phi {
                 insert_unique_btree!(set, indices_to_base_value(i,ii));
             }
-            sets.push(set);
+            push_element!(sets, set);
         }
         for i in 1..phi_n1 {
             for ii in 1..phi {
@@ -544,7 +569,7 @@ impl Batches {
                 for iii in 1..phi {
                     insert_unique_btree!(set, indices_to_base_value(((ii+(iii-1)*(i) - 1)%phi_n1)+1,iii));
                 }
-                sets.push(set);
+                push_element!(sets, set);
             }
         }
         for i in 1..phi {
@@ -553,7 +578,7 @@ impl Batches {
             for ii in 1..phi {
                 insert_unique_btree!(set, indices_to_base_value(ii,i));
             }
-            sets.push(set);
+            push_element!(sets, set);
         }
         
         Batches {
@@ -601,9 +626,12 @@ impl Batches {
         let (sender, receiver) = channel();
         
         let collector = thread::spawn(move || {
+            #[cfg(feature = "vec")]
             let mut sets = Vec::with_capacity(omicron as usize + phi as usize);
+            #[cfg(not(feature = "vec"))]
+            let mut sets = LinkedList::new();
             for set in receiver.iter() {
-                sets.push(set);
+                push_element!(sets, set);
             }
             sets
         });
@@ -665,12 +693,14 @@ impl Batches {
     #[cfg_attr(feature = "inline-more", inline)]
     pub(crate) fn sequential_phi_2_unchecked(phi: Int, offset: Int) -> Batches {
         let omicron = phi*phi;
-
-        let mut sets = Vec::with_capacity(omicron as usize + phi as usize);
-        
         let phi_n1 = phi-1;
-
         let indices_to_base_value = move |row: Int, column: Int| offset+row*phi_n1+column;
+        
+        #[cfg(feature = "vec")]
+        let mut sets = Vec::with_capacity(omicron as usize + phi as usize);   
+        #[cfg(not(feature = "vec"))]
+        let mut sets = LinkedList::new();
+
 
         for i in 0..=phi {
             let mut set = BTreeSet::new();
@@ -678,7 +708,7 @@ impl Batches {
             for ii in 1..phi {
                 insert_unique_btree!(set, indices_to_base_value(i,ii));
             }
-            sets.push(set);
+            push_element!(sets, set);
         }
 
         for i in 1..phi {
@@ -688,7 +718,7 @@ impl Batches {
                 for iii in 1..phi {
                     insert_unique_btree!(set, indices_to_base_value(((ii+(iii-1)*(i) - 1)%phi)+1,iii));
                 }
-                sets.push(set);
+                push_element!(sets, set);
             }
         }
 
@@ -697,7 +727,7 @@ impl Batches {
             for ii in 1..=phi {
                 insert_unique_btree!(set, indices_to_base_value(ii, i));
             }
-            sets.push(set);
+            push_element!(sets, set);
         }
 
         Batches {
@@ -714,9 +744,10 @@ impl Batches {
     #[cfg_attr(feature = "inline-more", inline)]
     pub fn phi_x_omicron(mut self) -> Batches {
         if self.phi == 2 {
+            #[cfg(feature = "vec")]
             self.sets.reserve(self.omicron as usize * (2 * self.omicron as usize - 1) - self.len());
             self.omicron *= 2;
-            let m = self.min+self.omicron;
+            let m = self.min + self.omicron;
             self.sets.par_extend(
                 (self.max+1..m)
                 .into_par_iter()
@@ -737,6 +768,7 @@ impl Batches {
     #[cfg_attr(feature = "inline-more", inline)]
     pub fn sequential_phi_x_omicron(self) -> Batches {
         let mut sets = self.sets.clone();
+        #[cfg(feature = "vec")]
         sets.reserve((self.phi as usize - 1 + self.omicron as usize)*self.omicron as usize);
         
         for i in 1..self.phi-1 {
@@ -744,7 +776,7 @@ impl Batches {
             // debug_assert!(self.min + offset > self.max);
             for og_set in self.sets.iter() {
                 // insert_unique_btree!(sets, BTreeSet::from_iter(og_set.iter().map(|e|e+offset)));
-                sets.push(BTreeSet::from_iter(og_set.iter().map(|e|e+offset)));
+                push_element!(sets, BTreeSet::from_iter(og_set.iter().map(|e|e+offset)));
             }
         }
 
@@ -752,7 +784,7 @@ impl Batches {
         // debug_assert!(self.min + offset > self.max);
         for og_set in self.sets {
             // insert_unique_btree!(sets, BTreeSet::from_iter(og_set.iter().map(|e|e+offset)));
-            sets.push(BTreeSet::from_iter(og_set.iter().map(|e|e+offset)));
+            push_element!(sets, BTreeSet::from_iter(og_set.iter().map(|e|e+offset)));
         }
 
         for i in 0..self.omicron {
@@ -762,7 +794,7 @@ impl Batches {
                 for iii in 1..self.phi {
                     insert_unique_btree!(set, self.min + self.omicron*iii + ((i*iii+ii) % self.omicron));
                 }
-                sets.push(set);
+                push_element!(sets, set);
             }
         } 
 
@@ -780,13 +812,14 @@ impl Batches {
     #[cfg_attr(feature = "inline-more", inline)]
     pub fn parallel_phi_x_omicron(self) -> Batches {
         let mut sets = self.sets.clone();
+        #[cfg(feature = "vec")]
         sets.reserve((self.phi as usize - 1 + self.omicron as usize)*self.omicron as usize);
         
         let (sender, receiver) = channel();
 
         let collector = thread::spawn(move || {
             for set in receiver.iter() {
-                sets.push(set);
+                push_element!(sets, set);
             }
             sets
         });
@@ -830,7 +863,10 @@ impl Batches {
     #[must_use]
     #[cfg_attr(feature = "inline-more", inline)]
     pub fn batches_of_pairs(omicron: Int, offset: Int) -> Batches {
+        #[cfg(feature = "vec")]
         let mut sets = Vec::with_capacity(omicron as usize *(omicron as usize - 1) / 2);
+        #[cfg(not(feature = "vec"))]
+        let mut sets = LinkedList::new();
         sets.par_extend(
             (offset..omicron+offset)
             .into_par_iter()
